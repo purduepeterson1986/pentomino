@@ -60,13 +60,22 @@ If the pieces on the board can't lead to any solution, Hint says so instead. The
 - Below the map is a picture of every solution you've found, by number or newest first. Tap one to see it larger, and use **Previous** and **Next** to step through them.
 - **Reset my catalog** clears your progress (it asks first).
 
+### Backing up your catalog
+
+Your catalog lives in one browser on one device (see [Saving](#saving)). To keep it safe or move it:
+
+- **Back up catalog** saves a small file named like `pentomino-catalog-2026-11-18.json` to your Downloads folder. It lists every solution you've found, with its number, its board, and when and how you found it.
+- **Restore from backup** reads that file in any browser, on any device. It tells you how many of its solutions are new, then adds them to your catalog when you agree. It never removes anything, so restoring the same file twice is harmless. Where both have the same solution, the earlier find date is kept.
+
+Before adding a solution, the game checks that its number still matches its board, so a damaged or edited file can't put wrong entries in your catalog.
+
 ### How solutions are numbered
 
 A tray can be turned halfway round or mirrored, top to bottom or left to right. Those copies count as the **same** solution, so each solution has 4 forms. The game lists every solution in its standard form (the first of its 4 forms in alphabetical order, reading the 60 squares row by row as piece letters). It then sorts the list. A solution's place in that sorted list is its permanent number. The numbers never change, so your catalog stays correct.
 
 ## Saving
 
-Everything is saved in your browser on this device: your catalog, your settings, and the board you were working on. If you leave in the middle of a puzzle, **Continue** on the start screen picks it up where you left off. Clearing your browser's site data erases the catalog.
+Everything is saved in your browser on this device: your catalog, your settings, and the board you were working on. If you leave in the middle of a puzzle, **Continue** on the start screen picks it up where you left off. Clearing your browser's site data erases the catalog, so use **Back up catalog** now and then. Each browser and each device keeps its own catalog, and the online page and a copy opened from a file count as different sites.
 
 ## Screen sizes
 

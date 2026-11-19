@@ -351,7 +351,8 @@ h1, h2, h3, p { margin: 0; }
 .thumb-meta { display: flex; justify-content: space-between; gap: 6px; font-size: .82rem; color: var(--ink-faint); font-weight: 700; }
 .thumb-meta b { color: var(--ink); font-weight: 900; }
 .empty-note { color: var(--ink-faint); text-align: center; padding: 26px 10px; line-height: 1.5; }
-.more-row { display: flex; justify-content: center; }
+.more-row { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.backup-note { color: var(--ink-faint); text-align: center; font-size: .86rem; line-height: 1.5; margin: 12px auto 0; max-width: 560px; }
 
 /* ================= Toast, modal ================= */
 .toast {
@@ -629,7 +630,13 @@ h1, h2, h3, p { margin: 0; }
         <div class="empty-note" id="thumbs-empty" hidden>No solutions yet. Fill the whole tray to add your first one.</div>
         <div class="more-row" style="margin-top:14px"><button class="btn ghost" id="thumbs-more" type="button" hidden>Show more</button></div>
       </section>
-      <div class="more-row"><button class="btn ghost" id="reset-btn" type="button">Reset my catalog</button></div>
+      <div class="more-row">
+        <button class="btn ghost" id="backup-btn" type="button">Back up catalog</button>
+        <button class="btn ghost" id="restore-btn" type="button">Restore from backup</button>
+        <button class="btn ghost" id="reset-btn" type="button">Reset my catalog</button>
+      </div>
+      <p class="backup-note">Your catalog is saved in this browser only. A backup file keeps it safe and lets you move it to another browser or device. Restoring adds the solutions in the file to this catalog and never removes any.</p>
+      <input type="file" id="restore-file" accept=".json,application/json" hidden>
     </div>
   </main>
 
@@ -1894,6 +1901,81 @@ function buildCatalogFull() {
       found = {}; save(KEY_FOUND, found); renderCatalog(); toast('Your catalog is empty again.', '🧹');
     }, true);
   };
+  /* ---- Backup and restore ----
+     The file lists each solution's number with its 60-letter board, so a restore can check
+     that every number really means the same board before adding it. */
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  $('#backup-btn').onclick = function () {
+    var n = foundCount();
+    if (!n) { toast('Nothing to back up yet. Find a solution first.', 'ℹ️'); return; }
+    var out = { game: 'pentomino', version: 1, saved: new Date().toISOString(), count: n, found: {} };
+    foundIds().slice().sort(function (a, b) { return a - b; }).forEach(function (id) {
+      var r = found[id], e = {};
+      Object.keys(r).forEach(function (k) { e[k] = r[k]; });
+      if (CAT) e.b = CAT[id - 1];
+      out.found[id] = e;
+    });
+    var d = new Date(), name = 'pentomino-catalog-' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '.json';
+    var url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+    var a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    toast('Saved ' + fmtNum(n) + ' solution' + (n === 1 ? '' : 's') + ' to ' + name, '💾');
+  };
+  $('#restore-btn').onclick = function () { var f = $('#restore-file'); f.value = ''; f.click(); };
+  $('#restore-file').onchange = function () {
+    var file = this.files && this.files[0];
+    if (!file) return;
+    var rd = new FileReader();
+    rd.onload = function () { restoreFrom(String(rd.result || '')); };
+    rd.onerror = function () { toast('That file could not be read.', '⚠️', true); };
+    rd.readAsText(file);
+  };
+  function restoreFrom(text) {
+    var data = null;
+    try { data = JSON.parse(text); } catch (e) { /* handled below */ }
+    if (!data || data.game !== 'pentomino' || !data.found || typeof data.found !== 'object') {
+      openModal('<h3>Not a Pentomino backup</h3><p>That file isn\'t a catalog backup from this game. Choose a file named like <b>pentomino-catalog-….json</b>.</p><div class="modal-actions"><button class="btn primary" data-focus type="button">OK</button></div>')
+        .querySelector('button').onclick = closeModal;
+      return;
+    }
+    var add = {}, nNew = 0, nKnown = 0, nBad = 0;
+    Object.keys(data.found).forEach(function (k) {
+      var id = Number(k), r = data.found[k];
+      if (!(id >= 1 && id <= TOTAL && id === Math.floor(id)) || !r || typeof r !== 'object') { nBad++; return; }
+      if (r.b != null && CAT && r.b !== CAT[id - 1]) { nBad++; return; }
+      var e = { t: Number(r.t) || Date.now(), ms: Math.max(0, Number(r.ms) || 0), h: Math.max(0, Number(r.h) || 0), m: r.m === 'guided' ? 'guided' : 'free' };
+      add[id] = e;
+      if (found[id]) nKnown++; else nNew++;
+    });
+    var total = nNew + nKnown;
+    if (!total) {
+      openModal('<h3>Nothing to restore</h3><p>That backup has no solutions this game can use.</p><div class="modal-actions"><button class="btn primary" data-focus type="button">OK</button></div>')
+        .querySelector('button').onclick = closeModal;
+      return;
+    }
+    var when = data.saved ? ' from <b>' + fmtDate(data.saved) + '</b>' : '';
+    var msg = 'This backup' + when + ' has <b>' + fmtNum(total) + '</b> solution' + (total === 1 ? '' : 's') + '. ' +
+      (nNew ? '<b>' + fmtNum(nNew) + '</b> ' + (nNew === 1 ? 'is' : 'are') + ' new to this catalog' : 'You already have all of them') +
+      (nNew && nKnown ? ' and ' + fmtNum(nKnown) + ' you already have' : '') + '.' +
+      (nBad ? ' ' + fmtNum(nBad) + ' damaged entr' + (nBad === 1 ? 'y' : 'ies') + ' will be skipped.' : '') +
+      ' Nothing in your catalog will be removed.';
+    if (!nNew) {
+      openModal('<h3>Already up to date</h3><p>' + msg + '</p><div class="modal-actions"><button class="btn primary" data-focus type="button">OK</button></div>')
+        .querySelector('button').onclick = closeModal;
+      return;
+    }
+    confirmModal('Restore from backup?', msg, 'Add ' + fmtNum(nNew), function () {
+      Object.keys(add).forEach(function (id) {
+        // Keep the earliest find of each solution.
+        if (!found[id] || (add[id].t < (found[id].t || Infinity))) found[id] = add[id];
+      });
+      save(KEY_FOUND, found);
+      renderCatalog();
+      toast('Added ' + fmtNum(nNew) + ' solution' + (nNew === 1 ? '' : 's') + '. You now have ' + fmtNum(foundCount()) + ' of 2,339.', '✅');
+    });
+  }
+
   $('#menu-btn').onclick = function () { saveGame(); show('setup'); renderSetup(); };
   $('#restart-btn').onclick = confirmNew;
   $('#rot-btn').onclick = function () { transformSelected('cw'); };
