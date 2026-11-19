@@ -14,8 +14,8 @@ The whole game is in one file, `index.html`. Open it in a browser. There is noth
    - Or **tap** a piece to pick it up, then **tap a square** on the board to put it there.
 3. Turn and flip pieces:
    - **Turn:** tap a selected piece again, press **Turn**, or press **R** (**Shift + R** turns the other way). With a mouse, point at a piece and turn the scroll wheel: down turns it clockwise, up the other way. With no piece under the pointer, the wheel turns the piece you picked up.
-   - **Flip:** press **Flip** or **F** to turn the piece over.
-4. Take a piece back by dragging it off the board, pressing **Return** (or **Delete**), or right-clicking it. **Clear** puts every piece back in the tray. **Undo** (or **⌘/Ctrl + Z**) steps back one move.
+   - **Flip:** right-click a piece (or Control-click on a Mac), press **Flip**, or press **F** to turn the piece over.
+4. Take a piece back by dragging it off the board, or pressing **Return** (or **Delete**). **Clear** puts every piece back in the tray. **Undo** (or **⌘/Ctrl + Z**) steps back one move.
 5. When all 12 pieces fill the tray, the game works out which solution it is (#1 to #2,339):
    - **New solution found!** It goes into your catalog, with the date, your time and the hints you used.
    - **Found before.** The game tells you its number and when you first found it.

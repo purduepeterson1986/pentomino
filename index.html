@@ -1651,10 +1651,24 @@ function buildCatalogFull() {
     st.addEventListener('pointerup', up);
     st.addEventListener('pointercancel', up);
     st.addEventListener('pointerleave', function (e) { if (!drag && e.pointerType === 'mouse') ghostEl.hidden = true; });
+    // Right-click (or Control-click) flips a piece: the one being dragged, else the one under
+    // the pointer, else the picked-up piece.
     st.addEventListener('contextmenu', function (e) {
       e.preventDefault();
+      if (!game || modalOpen()) return;
+      if (drag) {
+        if (!drag.moved) beginDrag();
+        turnDragged('fh');
+        return;
+      }
       var cell = e.target.closest && e.target.closest('.cell');
-      if (cell && !drag) { var L = cell.closest('.piece').dataset.l; if (game.pieces[L].at && !game.pieces[L].pin) returnToTray(L); }
+      var slotEl = !cell && e.target.closest && e.target.closest('.tray-slot');
+      var L = cell ? cell.closest('.piece').dataset.l : (slotEl && !game.pieces[slotEl.dataset.l].at) ? slotEl.dataset.l : selected;
+      if (!L) return;
+      if (game.pieces[L].pin) { transform(L, 'fh'); return; }   // explains that it's pinned
+      if (selected !== L) select(L);
+      transform(L, 'fh');
+      hoverGhost();
     });
     // The mouse wheel turns a piece: the one being dragged, else the one under the pointer,
     // else the picked-up piece. Down turns it clockwise, up the other way.
@@ -2071,8 +2085,8 @@ function buildCatalogFull() {
       '<ul class="help-list">' +
       '<li><b>Move</b><span>Drag a piece onto the board. Or tap a piece, then tap a square.</span></li>' +
       '<li><b>Turn</b><span>Tap a selected piece again, press <b>Turn</b>, or press <span class="kbd">R</span> (<span class="kbd">Shift</span>+<span class="kbd">R</span> turns the other way). Or point at a piece and turn the mouse wheel.</span></li>' +
-      '<li><b>Flip</b><span>Press <b>Flip</b> or <span class="kbd">F</span> to turn it over.</span></li>' +
-      '<li><b>Take back</b><span>Drag it off the board, press <b>Return</b> or <span class="kbd">Delete</span>, or right-click it.</span></li>' +
+      '<li><b>Flip</b><span>Right-click a piece, press <b>Flip</b>, or press <span class="kbd">F</span> to turn it over.</span></li>' +
+      '<li><b>Take back</b><span>Drag it off the board, or press <b>Return</b> or <span class="kbd">Delete</span>.</span></li>' +
       '<li><b>Hint</b><span>Places one piece that leads to a solution, picking one you haven\'t found yet when it can. If nothing can fit, the pieces in the way flash red.</span></li>' +
       '<li><b>Keys</b><span><span class="kbd">Tab</span> picks the next piece, arrow keys move it, <span class="kbd">H</span> hint, <span class="kbd">⌘/Ctrl</span>+<span class="kbd">Z</span> undo, <span class="kbd">Esc</span> lets go.</span></li>' +
       '<li><b>Pins</b><span>Pinned pieces (with a brass pin) stay put. Use Undo to take back a hint.</span></li>' +
