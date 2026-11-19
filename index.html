@@ -1092,7 +1092,7 @@ function buildCatalogFull() {
   var game = null;
   var view = { portrait: false, cs: 40, bx: 0, by: 0, slots: {}, slotIn: 50 };
   var pieceEls = {}, slotEls = {}, boardEl = null, innerEl = null, trayEl = null, ghostEl = null;
-  var selected = null, drag = null, timerId = 0;
+  var selected = null, drag = null, timerId = 0, mousePt = null, wheel = { last: 0, turned: 0, acc: 0 };
 
   function basePieces() {
     var p = {};
@@ -1632,13 +1632,15 @@ function buildCatalogFull() {
         else if (drag.moved) positionDrag();
         return;
       }
-      // Hover preview for a selected tray piece (mouse only).
-      if (!drag && selected && e.pointerType === 'mouse' && game && !game.pieces[selected].at && !game.pieces[selected].pin) {
-        var bc = boardCellAt(pt);
-        if (bc) { var g = grid(selected); showGhost(selected, game.pieces[selected].cells, g[bc.r * COLS + bc.c] ? null : spotFor(game.pieces[selected].cells, bc, g)); }
-        else ghostEl.hidden = true;
-      }
+      if (e.pointerType === 'mouse') { mousePt = pt; hoverGhost(); }
     });
+    // Hover preview for a selected tray piece (mouse only).
+    function hoverGhost() {
+      if (drag || !selected || !mousePt || !game || game.pieces[selected].at || game.pieces[selected].pin) return;
+      var bc = boardCellAt(mousePt);
+      if (bc) { var g = grid(selected); showGhost(selected, game.pieces[selected].cells, g[bc.r * COLS + bc.c] ? null : spotFor(game.pieces[selected].cells, bc, g)); }
+      else ghostEl.hidden = true;
+    }
     function up(e) {
       if (!drag || e.pointerId !== drag.id) return;
       if (drag.moved) { endDrag(e.type === 'pointercancel'); return; }
@@ -1654,11 +1656,43 @@ function buildCatalogFull() {
       var cell = e.target.closest && e.target.closest('.cell');
       if (cell && !drag) { var L = cell.closest('.piece').dataset.l; if (game.pieces[L].at && !game.pieces[L].pin) returnToTray(L); }
     });
-    // Mouse wheel turns a piece while dragging it.
+    // The mouse wheel turns a piece: the one being dragged, else the one under the pointer,
+    // else the picked-up piece. Down turns it clockwise, up the other way.
     st.addEventListener('wheel', function (e) {
-      if (!drag || !drag.moved) return;
+      if (!game || modalOpen() || screen !== 'game') return;
+      var L = null;
+      if (drag) L = drag.L;
+      else {
+        var cell = e.target.closest && e.target.closest('.cell');
+        var slotEl = !cell && e.target.closest && e.target.closest('.tray-slot');
+        if (cell) L = cell.closest('.piece').dataset.l;
+        else if (slotEl && !game.pieces[slotEl.dataset.l].at) L = slotEl.dataset.l;
+        else L = selected;
+        if (L && game.pieces[L].pin) L = (L === selected) ? null : selected;
+        if (L && game.pieces[L].pin) L = null;
+      }
+      if (!L) return;                         // nothing to turn: let the page scroll
       e.preventDefault();
-      turnDragged(e.deltaY > 0 ? 'cw' : 'ccw');
+      var d = e.deltaY || e.deltaX;           // Shift + wheel scrolls sideways on a Mac
+      if (!d) return;
+      d *= e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 800 : 1;
+      // One notch should be one turn. Mice with smooth scrolling and trackpads send a burst of
+      // events, so a new turn needs a pause in the scrolling, or a long, steady scroll.
+      var now = performance.now(), gap = now - wheel.last;
+      wheel.last = now;
+      if (gap > 140 || Math.sign(d) !== Math.sign(wheel.acc)) wheel.acc = 0;
+      wheel.acc += d;
+      if (!(gap > 140 || (now - wheel.turned > 320 && Math.abs(wheel.acc) > 120))) return;
+      wheel.turned = now; wheel.acc = 0;
+      var op = d > 0 ? 'cw' : 'ccw';
+      if (drag) {
+        if (!drag.moved) beginDrag();         // button held on a piece: pick it up, then turn it
+        turnDragged(op);
+        return;
+      }
+      if (selected !== L) select(L);
+      transform(L, op);
+      hoverGhost();
     }, { passive: false });
   }
   function turnDragged(op) {
@@ -2036,7 +2070,7 @@ function buildCatalogFull() {
       '<p>Fit all 12 pieces into the tray with no gaps. Every different way you find gets a number from #1 to #2,339 in your catalog.</p>' +
       '<ul class="help-list">' +
       '<li><b>Move</b><span>Drag a piece onto the board. Or tap a piece, then tap a square.</span></li>' +
-      '<li><b>Turn</b><span>Tap a selected piece again, press <b>Turn</b>, or press <span class="kbd">R</span> (<span class="kbd">Shift</span>+<span class="kbd">R</span> turns the other way). The mouse wheel turns a piece while you drag it.</span></li>' +
+      '<li><b>Turn</b><span>Tap a selected piece again, press <b>Turn</b>, or press <span class="kbd">R</span> (<span class="kbd">Shift</span>+<span class="kbd">R</span> turns the other way). Or point at a piece and turn the mouse wheel.</span></li>' +
       '<li><b>Flip</b><span>Press <b>Flip</b> or <span class="kbd">F</span> to turn it over.</span></li>' +
       '<li><b>Take back</b><span>Drag it off the board, press <b>Return</b> or <span class="kbd">Delete</span>, or right-click it.</span></li>' +
       '<li><b>Hint</b><span>Places one piece that leads to a solution, picking one you haven\'t found yet when it can. If nothing can fit, the pieces in the way flash red.</span></li>' +
