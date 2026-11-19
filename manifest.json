@@ -1,0 +1,14 @@
+{
+  "name": "Pentomino",
+  "short_name": "Pentomino",
+  "description": "Fit all 12 pentomino pieces into a 6 × 10 wooden tray, and collect all 2,339 solutions.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#080b1c",
+  "theme_color": "#0c1024",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}
+  ]
+}

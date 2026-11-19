@@ -1,0 +1,1963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1024">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pentomino">
+  <title>Pentomino</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+/* ================= Pentomino ================= */
+:root {
+  --bg-0: #080b1c;
+  --bg-1: #121a3a;
+  --ink: #f5f6ff;
+  --ink-dim: #b9bfe0;
+  --ink-faint: #848bb5;
+  --glass: rgba(255, 255, 255, .06);
+  --glass-2: rgba(255, 255, 255, .1);
+  --line: rgba(255, 255, 255, .13);
+  --gold: #ffcf5c;
+  --gold-deep: #f09a1a;
+  --good: #5fe3a1;
+  --bad: #ff5c6c;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  --font: ui-rounded, "SF Pro Rounded", "Avenir Next", "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ease: cubic-bezier(.34, 1.4, .5, 1);
+  --snap: cubic-bezier(.2, .9, .3, 1.15);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg-0);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+button, input { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+button:disabled { cursor: default; }
+h1, h2, h3, p { margin: 0; }
+[hidden] { display: none !important; }
+
+.backdrop {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    radial-gradient(60vmax 60vmax at 10% -10%, rgba(120, 70, 220, .35), transparent 60%),
+    radial-gradient(55vmax 55vmax at 105% 15%, rgba(40, 150, 230, .22), transparent 60%),
+    radial-gradient(70vmax 50vmax at 50% 125%, rgba(255, 110, 150, .16), transparent 60%),
+    linear-gradient(170deg, var(--bg-1), var(--bg-0) 70%);
+}
+.backdrop::before {
+  content: ""; position: absolute; inset: 0; opacity: .7;
+  background-image:
+    radial-gradient(1.2px 1.2px at 20px 30px, #fff, transparent),
+    radial-gradient(1px 1px at 90px 110px, rgba(255, 255, 255, .8), transparent),
+    radial-gradient(1.4px 1.4px at 150px 60px, rgba(255, 230, 170, .9), transparent),
+    radial-gradient(1px 1px at 60px 170px, rgba(180, 210, 255, .9), transparent);
+  background-size: 220px 220px;
+  -webkit-mask-image: linear-gradient(180deg, #000, transparent 85%);
+  mask-image: linear-gradient(180deg, #000, transparent 85%);
+}
+
+.screen {
+  position: fixed; inset: 0; z-index: 1;
+  display: none; flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.screen.active { display: flex; animation: screen-in .35s ease both; }
+@keyframes screen-in { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } }
+
+/* ================= Buttons ================= */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1px solid var(--line);
+  background: var(--glass-2);
+  border-radius: 999px;
+  padding: 0 20px;
+  min-height: 46px;
+  font-weight: 700;
+  letter-spacing: .01em;
+  white-space: nowrap;
+  transition: transform .15s ease, background .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+.btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.btn:active:not(:disabled) { transform: scale(.96); }
+.btn.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .17); }
+.btn:disabled { opacity: .4; }
+.btn.primary {
+  border: 0;
+  color: #2a1a00;
+  background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold-deep));
+  box-shadow: 0 8px 22px rgba(240, 170, 40, .35), inset 0 1px 0 rgba(255, 255, 255, .6);
+}
+.btn.primary:hover:not(:disabled) { box-shadow: 0 10px 28px rgba(240, 170, 40, .5), inset 0 1px 0 rgba(255, 255, 255, .6); }
+.btn.danger { border: 0; color: #fff; background: linear-gradient(180deg, #ff7d8e, #e0405c); }
+.btn.big { min-height: 60px; padding: 0 44px; font-size: 1.2rem; }
+.btn:focus-visible, .icon-btn:focus-visible, .tile:focus-visible, .seg:focus-visible, .thumb:focus-visible {
+  outline: 3px solid var(--gold); outline-offset: 3px;
+}
+
+.icon-btn {
+  width: 46px; height: 46px; flex: none;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--glass-2);
+  transition: transform .15s ease, background .15s ease;
+}
+.icon-btn:hover { background: rgba(255, 255, 255, .17); }
+.icon-btn:active { transform: scale(.92); }
+.icon-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn .spk { fill: currentColor; stroke: none; }
+.icon-btn .mute { display: none; }
+.icon-btn.off .wave { display: none; }
+.icon-btn.off .mute { display: block; }
+.icon-btn.off { color: var(--ink-faint); }
+
+/* ================= Settings ================= */
+.setup-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: clamp(18px, 4vh, 40px) clamp(14px, 4vw, 40px) 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.setup-scroll > * { width: 100%; max-width: 1040px; }
+
+.hero { text-align: center; padding-bottom: 6px; }
+.hero h1 {
+  font-size: clamp(2.3rem, 6vw, 3.8rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.05;
+  background: linear-gradient(180deg, #fff, #ffe7a6 70%, #ffc76a);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero p { margin: 10px auto 0; max-width: 36em; color: var(--ink-dim); font-size: clamp(.98rem, 2vw, 1.1rem); line-height: 1.45; }
+.logo { width: 200px; margin: 0 auto 12px; filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .5)); }
+.logo svg { display: block; width: 100%; height: auto; overflow: visible; }
+.logo .drop { animation: piece-drop 3.2s cubic-bezier(.5, 0, .9, .5) infinite; }
+@keyframes piece-drop {
+  0% { transform: translateY(-14px); opacity: 0; }
+  12% { opacity: 1; }
+  28% { transform: translateY(0); }
+  33% { transform: translateY(-1.6px); }
+  38%, 100% { transform: translateY(0); opacity: 1; }
+}
+
+.panel {
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: clamp(14px, 2.4vw, 22px);
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.panel h2 { font-size: 1.2rem; font-weight: 800; }
+.hint { color: var(--ink-faint); font-size: .9rem; margin-top: 12px; line-height: 1.4; }
+
+.segmented { display: inline-flex; padding: 4px; gap: 4px; border-radius: 999px; background: rgba(0, 0, 0, .28); border: 1px solid var(--line); }
+.seg {
+  min-width: 58px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent;
+  font-weight: 800; font-size: 1.02rem; color: var(--ink-dim);
+  transition: background .2s ease, color .2s ease;
+}
+.seg:hover { color: var(--ink); }
+.seg.on { background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold-deep)); color: #2a1a00; box-shadow: 0 3px 10px rgba(240, 170, 40, .35); }
+.segmented.small .seg { min-width: 0; min-height: 40px; font-size: .92rem; padding: 0 13px; }
+
+.modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.levels { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.tile {
+  position: relative; text-align: left;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 14px; border-radius: 18px;
+  border: 2px solid var(--line); background: rgba(0, 0, 0, .22);
+  transition: transform .15s ease, border-color .2s ease, background .2s ease;
+}
+.tile:hover { background: rgba(255, 255, 255, .08); }
+.tile:active { transform: scale(.98); }
+.tile.on { border-color: var(--gold); background: rgba(255, 207, 92, .1); box-shadow: 0 0 0 4px rgba(255, 207, 92, .12); }
+.tile.on::after {
+  content: "✓"; position: absolute; top: 10px; right: 10px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 900; font-size: .9rem;
+  background: var(--gold); color: #2a1a00;
+}
+.tile-num { color: var(--ink-faint); font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.tile-name { font-size: 1.1rem; font-weight: 800; }
+.tile-desc { color: var(--ink-dim); font-size: .88rem; line-height: 1.38; }
+.tile-art { height: 46px; display: flex; align-items: center; }
+.tile-art svg { height: 100%; width: auto; overflow: visible; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .4)); }
+.levels .tile { min-height: 132px; }
+.levels .tile-art { height: 34px; }
+.mode-tile { min-height: 150px; }
+
+.opt-rows { display: grid; gap: 12px; }
+.opt-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.opt-row b { display: block; font-weight: 800; }
+.opt-row span { display: block; color: var(--ink-faint); font-size: .88rem; margin-top: 2px; line-height: 1.35; }
+.opt-row > div:first-child { flex: 1 1 260px; }
+
+.progress-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.progress-num { font-size: 1.9rem; font-weight: 900; line-height: 1; white-space: nowrap; }
+.progress-num small { font-size: 1rem; color: var(--ink-faint); font-weight: 800; }
+.bar { flex: 1 1 200px; height: 14px; border-radius: 999px; background: rgba(0, 0, 0, .35); border: 1px solid var(--line); overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, var(--gold-deep), var(--gold), #ffe9a8); box-shadow: 0 0 12px rgba(255, 207, 92, .5); transition: width .6s ease; }
+
+.setup-footer {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 14px 22px; flex-wrap: wrap;
+  padding: 14px clamp(14px, 4vw, 40px) calc(14px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, rgba(6, 8, 22, .85) 40%);
+  border-top: 1px solid var(--line);
+}
+.summary { color: var(--ink-dim); font-weight: 600; text-align: center; }
+.summary b { color: var(--ink); }
+.footer-btns { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+/* ================= Play screen ================= */
+.topbar {
+  flex: none; display: flex; align-items: center; gap: 12px;
+  padding: 10px clamp(10px, 2vw, 22px) 6px;
+}
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 1.2rem; white-space: nowrap; }
+.brand-mark { width: 34px; height: 34px; flex: none; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, .45)); }
+.round-info { flex: 1; min-width: 0; text-align: center; color: var(--ink-dim); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.round-info b { color: var(--ink); }
+.controls { display: flex; align-items: center; gap: 8px; }
+
+.status {
+  flex: none; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  padding: 2px clamp(10px, 2vw, 22px) 4px; min-height: 40px;
+}
+.status-main { color: var(--ink-dim); font-weight: 700; text-align: center; line-height: 1.3; }
+.status-main b { color: var(--ink); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  font-weight: 800; font-size: .9rem; white-space: nowrap;
+  background: rgba(0, 0, 0, .3); border: 1px solid var(--line);
+}
+.chip.good { color: var(--good); border-color: rgba(95, 227, 161, .4); }
+.chip.bad { color: var(--bad); border-color: rgba(255, 92, 108, .45); }
+
+.field { flex: 1; min-height: 0; position: relative; }
+.stage { position: absolute; inset: 0; touch-action: none; }
+
+.wood {
+  position: absolute;
+  background:
+    repeating-linear-gradient(91deg, rgba(130, 80, 30, .07) 0 2px, transparent 2px 7px, rgba(130, 80, 30, .05) 7px 8px, transparent 8px 15px),
+    repeating-linear-gradient(89.3deg, rgba(255, 255, 255, .07) 0 1px, transparent 1px 23px),
+    radial-gradient(120% 60% at 30% 0%, rgba(255, 255, 255, .22), transparent 60%),
+    linear-gradient(180deg, #ecd3a4, #dcbb84 55%, #cfa66c);
+  box-shadow: 0 22px 46px rgba(0, 0, 0, .55), 0 3px 0 #a87c45, inset 0 1px 0 rgba(255, 255, 255, .6), inset 0 -2px 0 rgba(0, 0, 0, .12);
+}
+.board-inner {
+  position: absolute;
+  background-color: #b98d55;
+  background-image:
+    linear-gradient(rgba(70, 40, 12, .22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(70, 40, 12, .22) 1px, transparent 1px),
+    repeating-linear-gradient(91deg, rgba(90, 50, 15, .08) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #b48650, #c79c63);
+  box-shadow: inset 0 4px 10px rgba(0, 0, 0, .45), inset 0 -1px 0 rgba(255, 255, 255, .25), 0 1px 0 rgba(255, 255, 255, .45);
+}
+.tray-slot {
+  position: absolute; border-radius: 12%; cursor: pointer;
+  background: rgba(120, 75, 30, .12);
+  box-shadow: inset 0 2px 5px rgba(70, 40, 10, .28), 0 1px 0 rgba(255, 255, 255, .35);
+}
+.tray-slot.sel { background: rgba(255, 207, 92, .3); box-shadow: inset 0 0 0 2px var(--gold), 0 0 14px rgba(255, 190, 60, .7); }
+.tray-slot span {
+  position: absolute; left: 8%; top: 5%;
+  font-weight: 900; color: rgba(90, 55, 20, .5); font-size: var(--fs, 12px);
+}
+.drop-ghost { position: absolute; left: 0; top: 0; pointer-events: none; opacity: .5; z-index: 1; }
+.drop-ghost svg { display: block; overflow: visible; }
+
+.piece {
+  position: absolute; left: 0; top: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+  transition: transform .26s var(--snap), filter .2s ease;
+  filter: drop-shadow(0 2px 1.5px rgba(40, 20, 0, .45));
+  z-index: 2;
+}
+.piece svg { display: block; overflow: visible; }
+.piece .cell { pointer-events: all; cursor: grab; }
+.piece.locked .cell { cursor: default; }
+.piece.placed { z-index: 3; }
+.stage.no-anim .piece { transition: none; }
+.piece.sel { z-index: 5; filter: drop-shadow(0 0 1.2px #fff6d6) drop-shadow(0 0 1.5px #ffcf5c) drop-shadow(0 0 1.5px #ffcf5c) drop-shadow(0 0 9px rgba(255, 190, 60, .95)) drop-shadow(0 6px 8px rgba(0, 0, 0, .4)); }
+.piece.dragging { z-index: 10; transition: none; filter: drop-shadow(0 16px 14px rgba(0, 0, 0, .5)); }
+.piece.dragging .cell { cursor: grabbing; }
+.piece.lifting { transition: transform .12s ease-out; }
+.piece.warn { animation: warn-pulse .9s ease-in-out 3; }
+@keyframes warn-pulse { 50% { filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 12px rgba(255, 60, 80, 1)); } }
+.piece.shake > svg { animation: shake .35s ease; }
+@keyframes shake { 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+.piece.pop > svg { animation: pop .35s var(--ease); }
+@keyframes pop { 40% { transform: scale(1.04); } }
+.stage.won .piece { animation: won-glow 1.6s ease-in-out 1; }
+@keyframes won-glow { 40% { filter: drop-shadow(0 0 6px rgba(255, 236, 170, .95)); } }
+
+.loading {
+  position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-dim); font-weight: 800;
+}
+
+.actionbar {
+  flex: none; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px clamp(10px, 2vw, 22px) calc(10px + env(safe-area-inset-bottom));
+}
+.actionbar .btn { min-height: 48px; padding: 0 18px; }
+.actionbar .btn.hint-btn { color: #2a1a00; border: 0; background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold-deep)); box-shadow: 0 6px 16px rgba(240, 170, 40, .3), inset 0 1px 0 rgba(255, 255, 255, .6); }
+.kbd { font-size: .72rem; font-weight: 800; padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--ink-faint); background: rgba(0, 0, 0, .25); }
+.hint-btn .kbd { color: rgba(42, 26, 0, .65); border-color: rgba(42, 26, 0, .25); background: rgba(255, 255, 255, .25); }
+
+/* ================= Catalog ================= */
+.cat-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 6px clamp(14px, 4vw, 40px) 30px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+.cat-scroll > * { width: 100%; max-width: 1100px; }
+.map-wrap { position: relative; }
+#map { display: block; width: 100%; image-rendering: pixelated; cursor: pointer; border-radius: 8px; }
+.map-legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--ink-faint); font-size: .86rem; margin-top: 10px; align-items: center; }
+.map-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.thumb {
+  border: 1px solid var(--line); border-radius: 14px; background: rgba(0, 0, 0, .25); padding: 8px 8px 6px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+.thumb:hover { background: rgba(255, 255, 255, .08); border-color: rgba(255, 207, 92, .5); }
+.thumb:active { transform: scale(.97); }
+.thumb canvas { width: 100%; height: auto; aspect-ratio: 10 / 6; display: block; border-radius: 4px; }
+.thumb-meta { display: flex; justify-content: space-between; gap: 6px; font-size: .82rem; color: var(--ink-faint); font-weight: 700; }
+.thumb-meta b { color: var(--ink); font-weight: 900; }
+.empty-note { color: var(--ink-faint); text-align: center; padding: 26px 10px; line-height: 1.5; }
+.more-row { display: flex; justify-content: center; }
+
+/* ================= Toast, modal ================= */
+.toast {
+  position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 25;
+  translate: -50% 0;
+  display: flex; align-items: center; gap: 10px;
+  max-width: calc(100% - 24px);
+  padding: 10px 18px; border-radius: 18px;
+  background: rgba(14, 10, 34, .94); border: 2px solid var(--gold);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .5), 0 0 30px rgba(255, 207, 92, .2);
+  font-weight: 800; font-size: clamp(.95rem, 2.2vw, 1.1rem); line-height: 1.3;
+  transform: translateY(14px) scale(.9); opacity: 0; pointer-events: none;
+  transition: transform .3s var(--ease), opacity .2s ease;
+}
+.toast.bad { border-color: var(--bad); box-shadow: 0 10px 30px rgba(0, 0, 0, .5), 0 0 30px rgba(255, 92, 108, .2); }
+.toast.show { transform: none; opacity: 1; }
+.toast-ico { font-size: 1.35em; line-height: 1; }
+
+.modal-layer {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 18px;
+  background: rgba(5, 6, 18, .62);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  animation: fade .2s ease both;
+}
+.modal {
+  width: min(540px, 100%); max-height: 92vh; overflow-y: auto;
+  padding: clamp(20px, 4vw, 32px); border-radius: 26px; text-align: center;
+  background: linear-gradient(180deg, #26204f, #151333);
+  border: 1px solid rgba(255, 255, 255, .18);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .65);
+  animation: modal-in .35s var(--ease) both;
+}
+.modal.wide { width: min(720px, 100%); }
+@keyframes modal-in { from { transform: scale(.85) translateY(20px); opacity: 0; } }
+.modal-ico { font-size: 3.2rem; line-height: 1; margin-bottom: 8px; }
+.modal h3 { font-size: clamp(1.5rem, 4.5vw, 2.1rem); font-weight: 900; line-height: 1.15; }
+.modal p { color: var(--ink-dim); margin-top: 8px; line-height: 1.45; }
+.modal p b { color: var(--ink); }
+.modal-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+.modal-actions .btn { min-height: 52px; padding: 0 24px; }
+.modal .sol-id { display: inline-block; margin-top: 10px; padding: 6px 16px; border-radius: 999px; font-weight: 900; font-size: 1.3rem; color: #2a1a00; background: linear-gradient(180deg, #ffe08a, var(--gold) 45%, var(--gold-deep)); }
+.modal .sol-id.seen { color: var(--ink); background: rgba(255, 255, 255, .12); border: 1px solid var(--line); }
+.modal-board { margin: 16px auto 0; max-width: 100%; }
+.modal-board canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.stats-row { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.help-list { text-align: left; margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; color: var(--ink-dim); line-height: 1.4; }
+.help-list li { display: flex; gap: 10px; }
+.help-list li > b:first-child { flex: none; min-width: 96px; color: var(--ink); }
+.help-list .kbd { font-size: .8rem; }
+
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; }
+
+/* ================= Small screens ================= */
+@media (max-width: 920px), (hover: none) {
+  .actionbar .kbd { display: none; }
+}
+@media (max-width: 920px) {
+  .brand-name { display: none; }
+  .ri-x { display: none; }
+  #game .controls .btn span { display: none; }
+  #game .controls .btn { padding: 0 13px; }
+}
+@media (max-width: 860px) {
+  .levels { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .controls .btn span, .brand-name { display: none; }
+  .controls .btn { padding: 0 13px; }
+  .actionbar .btn { padding: 0 13px; min-height: 46px; }
+  .actionbar .kbd { display: none; }
+}
+@media (max-width: 560px) {
+  .modes { grid-template-columns: 1fr; }
+  .mode-tile { min-height: 0; }
+  .levels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .controls { gap: 6px; }
+  .icon-btn { width: 40px; height: 40px; }
+  .controls .btn { min-height: 40px; padding: 0 10px; }
+  .actionbar { gap: 6px; }
+  .actionbar .btn { padding: 0 11px; min-height: 44px; font-size: .92rem; }
+  .actionbar .btn span.lbl-long { display: none; }
+  .ri-mode { display: none; }
+  .brand { display: none; }
+  .round-info { text-align: left; }
+  .thumbs { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .status { min-height: 34px; }
+  .status-main { font-size: .92rem; }
+}
+@media (max-width: 400px) {
+  .actionbar .btn span.lbl { display: none; }
+  .actionbar .btn { width: 46px; padding: 0; }
+  #restart-btn, #fs-btn { display: none; }
+}
+@media (max-height: 560px) {
+  .topbar { padding-top: 6px; padding-bottom: 2px; }
+  .status { min-height: 30px; }
+  .actionbar { padding-top: 4px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+  .actionbar .btn { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .piece, .logo .drop, .screen.active { transition: none !important; animation: none !important; }
+}
+  </style>
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"></div>
+
+  <!-- Shared gradients used by every piece drawing -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="pg-sheen" x1="0" y1="0" x2=".35" y2="1">
+        <stop offset="0" stop-color="#fff" stop-opacity=".26"/>
+        <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".16"/>
+      </linearGradient>
+      <radialGradient id="pg-pin" cx=".35" cy=".3" r=".75">
+        <stop offset="0" stop-color="#fff6d0"/>
+        <stop offset=".45" stop-color="#e2b04a"/>
+        <stop offset="1" stop-color="#8a5a12"/>
+      </radialGradient>
+    </defs>
+  </svg>
+
+  <!-- ============ SETTINGS SCREEN ============ -->
+  <main id="setup" class="screen active">
+    <div class="setup-scroll">
+      <header class="hero">
+        <div class="logo" id="logo" aria-hidden="true"></div>
+        <h1>Pentomino</h1>
+        <p>Fit all 12 pieces into the 6 × 10 tray. There are 2,339 different ways to do it. How many can you find?</p>
+      </header>
+
+      <section class="panel" aria-labelledby="h-mode">
+        <div class="panel-head"><h2 id="h-mode">Game</h2></div>
+        <div class="modes" id="modes" role="radiogroup" aria-label="Game"></div>
+      </section>
+
+      <section class="panel" id="level-panel" aria-labelledby="h-level">
+        <div class="panel-head"><h2 id="h-level">Pieces placed for you</h2></div>
+        <div class="levels" id="levels" role="radiogroup" aria-label="Pieces placed for you"></div>
+        <p class="hint">The game picks a solution you haven't found yet and pins some of its pieces in place. Fewer pinned pieces makes a harder puzzle.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h-opts">
+        <div class="panel-head"><h2 id="h-opts">Options</h2></div>
+        <div class="opt-rows">
+          <div class="opt-row">
+            <div><b>Live check</b><span>Shows whether the pieces on the board can still lead to a full solution, and how many ways remain.</span></div>
+            <div class="segmented small" id="opt-live" role="radiogroup" aria-label="Live check"></div>
+          </div>
+          <div class="opt-row">
+            <div><b>Letters on pieces</b><span>Shows each piece's name (F, I, L, N, P, T, U, V, W, X, Y, Z).</span></div>
+            <div class="segmented small" id="opt-letters" role="radiogroup" aria-label="Letters on pieces"></div>
+          </div>
+          <div class="opt-row">
+            <div><b>Sound</b><span>Clicks when pieces are picked up and placed, and a fanfare for each solution.</span></div>
+            <div class="segmented small" id="opt-sound" role="radiogroup" aria-label="Sound"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-prog">
+        <div class="panel-head">
+          <h2 id="h-prog">Your solution catalog</h2>
+          <button class="btn ghost" id="setup-cat-btn" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>Open catalog</span>
+          </button>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-num" id="setup-count">0 <small>/ 2,339</small></div>
+          <div class="bar"><i id="setup-bar"></i></div>
+        </div>
+        <p class="hint">Every solution has a permanent number from #1 to #2,339. Turned or mirrored copies of the same solution count as one.</p>
+      </section>
+    </div>
+
+    <footer class="setup-footer">
+      <div class="summary" id="summary"></div>
+      <div class="footer-btns">
+        <button class="btn ghost big" id="continue-btn" type="button" hidden>Continue</button>
+        <button class="btn primary big" id="start-btn" type="button" disabled>Preparing…</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- ============ PLAY SCREEN ============ -->
+  <main id="game" class="screen">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" id="brand-mark" aria-hidden="true"></span><span class="brand-name">Pentomino</span></div>
+      <div class="round-info" id="round-info"></div>
+      <div class="controls">
+        <button class="icon-btn" id="help-btn" type="button" aria-label="How to play" title="How to play">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.6 2.6 0 1 1 3.6 2.4c-.7.3-1.1.9-1.1 1.6v.5"/><path d="M12 17.2v.1"/></svg>
+        </button>
+        <button class="icon-btn" id="sound-btn" type="button" aria-label="Sound on" title="Sound">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path class="spk" d="M4 9v6h4l5 4V5L8 9H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M17 9l5 6M22 9l-5 6"/></svg>
+        </button>
+        <button class="icon-btn" id="fs-btn" type="button" aria-label="Full screen" title="Full screen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        </button>
+        <button class="btn ghost" id="cat-btn" type="button" title="Solution catalog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>Catalog</span>
+        </button>
+        <button class="btn ghost" id="restart-btn" type="button" title="New board">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v5h5"/></svg><span>New</span>
+        </button>
+        <button class="btn ghost" id="menu-btn" type="button" title="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span>Settings</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="status">
+      <div class="status-main" id="status-main" role="status" aria-live="polite"></div>
+      <div class="chip" id="live-chip" hidden></div>
+    </div>
+
+    <section class="field" id="field">
+      <div class="stage" id="stage"></div>
+    </section>
+
+    <nav class="actionbar" aria-label="Piece actions">
+      <button class="btn ghost" id="rot-btn" type="button" title="Turn the selected piece (R)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5"/></svg><span class="lbl">Turn</span><span class="kbd">R</span>
+      </button>
+      <button class="btn ghost" id="flip-btn" type="button" title="Flip the selected piece over (F)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18"/><path d="M9 7 4 12l5 5V7zM15 7l5 5-5 5V7z"/></svg><span class="lbl">Flip</span><span class="kbd">F</span>
+      </button>
+      <button class="btn ghost" id="ret-btn" type="button" title="Put the selected piece back in the tray (Delete)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M4 19h16"/></svg><span class="lbl">Return<span class="lbl-long"> to tray</span></span><span class="kbd">Del</span>
+      </button>
+      <button class="btn ghost" id="undo-btn" type="button" title="Undo (Ctrl or ⌘ + Z)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg><span class="lbl">Undo</span>
+      </button>
+      <button class="btn ghost" id="clear-btn" type="button" title="Put every piece back in the tray">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span class="lbl">Clear</span>
+      </button>
+      <button class="btn hint-btn" id="hint-btn" type="button" title="Place one piece that leads to a solution (H)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg><span class="lbl">Hint</span><span class="kbd">H</span>
+      </button>
+    </nav>
+  </main>
+
+  <!-- ============ CATALOG SCREEN ============ -->
+  <main id="catalog" class="screen">
+    <header class="topbar">
+      <button class="btn ghost" id="cat-back" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Back</span>
+      </button>
+      <div class="round-info"><b>Solution catalog</b></div>
+      <div class="controls" style="visibility:hidden"><button class="btn ghost" type="button" tabindex="-1"><span>Back</span></button></div>
+    </header>
+    <div class="cat-scroll">
+      <section class="panel">
+        <div class="progress-wrap">
+          <div class="progress-num" id="cat-count">0 <small>/ 2,339</small></div>
+          <div class="bar"><i id="cat-bar"></i></div>
+          <div class="summary" id="cat-pct"></div>
+        </div>
+        <div class="map-wrap" style="margin-top:16px">
+          <canvas id="map" aria-label="Map of all 2,339 solutions. Found ones are lit."></canvas>
+        </div>
+        <div class="map-legend">
+          <span><i style="background:var(--gold)"></i>Found</span>
+          <span><i style="background:rgba(255,255,255,.12)"></i>Not found yet</span>
+          <span>Each square is one solution, #1 at the top left. Tap a lit square to see it.</span>
+        </div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Found solutions</h2>
+          <div class="segmented small" id="cat-sort" role="radiogroup" aria-label="Sort"></div>
+        </div>
+        <div class="thumbs" id="thumbs"></div>
+        <div class="empty-note" id="thumbs-empty" hidden>No solutions yet. Fill the whole tray to add your first one.</div>
+        <div class="more-row" style="margin-top:14px"><button class="btn ghost" id="thumbs-more" type="button" hidden>Show more</button></div>
+      </section>
+      <div class="more-row"><button class="btn ghost" id="reset-btn" type="button">Reset my catalog</button></div>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-layer" id="modal-layer" hidden>
+    <div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+  </div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script>
+// ===== PENTO CORE (shared by the game and the test script) =====
+var PIECES = {
+  F: ['.XX', 'XX.', '.X.'],
+  I: ['XXXXX'],
+  L: ['XXXX', 'X...'],
+  N: ['XX..', '.XXX'],
+  P: ['XX', 'XX', 'X.'],
+  T: ['XXX', '.X.', '.X.'],
+  U: ['X.X', 'XXX'],
+  V: ['X..', 'X..', 'XXX'],
+  W: ['X..', 'XX.', '.XX'],
+  X: ['.X.', 'XXX', '.X.'],
+  Y: ['.X..', 'XXXX'],
+  Z: ['XX.', '.X.', '.XX']
+};
+var LETTERS = 'FILNPTUVWXYZ';
+var ROWS = 6, COLS = 10, NCELL = 60;
+
+function shapeCells(rows) {
+  var out = [];
+  for (var r = 0; r < rows.length; r++)
+    for (var c = 0; c < rows[r].length; c++)
+      if (rows[r][c] === 'X') out.push([r, c]);
+  return out;
+}
+// Shift a cell list so its minimum row and column are 0, sorted row-major.
+function normCells(cells) {
+  var mr = Infinity, mc = Infinity;
+  cells.forEach(function (p) { mr = Math.min(mr, p[0]); mc = Math.min(mc, p[1]); });
+  var out = cells.map(function (p) { return [p[0] - mr, p[1] - mc]; });
+  out.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+  return out;
+}
+function cellsKey(cells) { return cells.map(function (p) { return p[0] + ',' + p[1]; }).join(';'); }
+// All distinct orientations (rotations and mirror images) of a piece.
+function orientations(letter) {
+  var base = shapeCells(PIECES[letter]), seen = {}, out = [];
+  var cur = base;
+  for (var f = 0; f < 2; f++) {
+    for (var k = 0; k < 4; k++) {
+      var n = normCells(cur), key = cellsKey(n);
+      if (!seen[key]) { seen[key] = 1; out.push(n); }
+      cur = cur.map(function (p) { return [p[1], -p[0]]; });
+    }
+    cur = base.map(function (p) { return [p[0], -p[1]]; });
+  }
+  return out;
+}
+
+// Enumerate every tiling of the 6x10 box (all 9,356, including mirror and turned copies).
+// Depth-first: always fill the first empty cell, scanning column by column.
+function solveAll(onSolution, prefill) {
+  var order = [];                       // column-major scan order
+  for (var c = 0; c < COLS; c++) for (var r = 0; r < ROWS; r++) order.push(r * COLS + c);
+  // place[cell] = list of {p: pieceIndex, cells: [..]} whose first column-major cell is `cell`
+  var place = [];
+  for (var i = 0; i < NCELL; i++) place.push([]);
+  for (var p = 0; p < 12; p++) {
+    orientations(LETTERS[p]).forEach(function (o) {
+      // anchor = first cell in column-major order
+      var a = o.slice().sort(function (x, y) { return x[1] - y[1] || x[0] - y[0]; })[0];
+      for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+        var ok = true, cells = [];
+        for (var j = 0; j < 5; j++) {
+          var rr = r + o[j][0] - a[0], cc = c + o[j][1] - a[1];
+          if (rr < 0 || rr >= ROWS || cc < 0 || cc >= COLS) { ok = false; break; }
+          cells.push(rr * COLS + cc);
+        }
+        if (ok) place[r * COLS + c].push({ p: p, cells: cells });
+      }
+    });
+  }
+  var board = new Int8Array(NCELL).fill(-1), used = 0, count = 0;
+  if (prefill) prefill.forEach(function (pl) { pl.cells.forEach(function (i) { board[i] = pl.p; }); used |= 1 << pl.p; });
+  function rec(pos) {
+    while (pos < NCELL && board[order[pos]] >= 0) pos++;
+    if (pos === NCELL) {
+      count++;
+      var s = '';
+      for (var i = 0; i < NCELL; i++) s += LETTERS[board[i]];
+      onSolution(s);
+      return;
+    }
+    var list = place[order[pos]];
+    for (var k = 0; k < list.length; k++) {
+      var pl = list[k];
+      if (used & (1 << pl.p)) continue;
+      var cs = pl.cells;
+      if (board[cs[0]] >= 0 || board[cs[1]] >= 0 || board[cs[2]] >= 0 || board[cs[3]] >= 0 || board[cs[4]] >= 0) continue;
+      for (var j = 0; j < 5; j++) board[cs[j]] = pl.p;
+      used |= 1 << pl.p;
+      rec(pos + 1);
+      used &= ~(1 << pl.p);
+      for (var j2 = 0; j2 < 5; j2++) board[cs[j2]] = -1;
+    }
+  }
+  rec(0);
+  return count;
+}
+
+// The four symmetries of a 6x10 rectangle, applied to a 60-letter row-major string.
+function symVariants(s) {
+  var rot = '', fh = '', fv = '';
+  for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+    rot += s[(ROWS - 1 - r) * COLS + (COLS - 1 - c)];
+    fh += s[r * COLS + (COLS - 1 - c)];
+    fv += s[(ROWS - 1 - r) * COLS + c];
+  }
+  return [s, rot, fh, fv];
+}
+function canonical(s) {
+  var v = symVariants(s), m = v[0];
+  for (var i = 1; i < 4; i++) if (v[i] < m) m = v[i];
+  return m;
+}
+// Returns the sorted list of canonical solutions. Index + 1 is the permanent solution number.
+// Fast path: every solution has exactly one turned/mirrored copy with the X piece's centre
+// in the top-left quarter (the board has no centre row or column of cells), so we place X
+// there first and fill the rest. Each solution is found once.
+function buildCatalog() {
+  var set = {}, raw = 0, xi = LETTERS.indexOf('X');
+  for (var r = 1; r <= 2; r++) for (var c = 1; c <= 4; c++) {
+    var ctr = r * COLS + c;
+    var cells = [ctr - COLS, ctr - 1, ctr, ctr + 1, ctr + COLS];
+    solveAll(function (s) { raw++; set[canonical(s)] = 1; }, [{ p: xi, cells: cells }]);
+  }
+  var list = Object.keys(set).sort();
+  return { list: list, raw: raw };
+}
+// Slow path used by the test: every tiling, then deduplicate.
+function buildCatalogFull() {
+  var set = {}, raw = 0;
+  solveAll(function (s) { raw++; set[canonical(s)] = 1; });
+  return { list: Object.keys(set).sort(), raw: raw };
+}
+// ===== END PENTO CORE =====
+
+
+(function () {
+  'use strict';
+
+  /* ================= Constants ================= */
+  var TOTAL = 2339;
+  var COLORS = { F: '#ec5f86', I: '#86c94a', L: '#9ccbf0', N: '#62406a', P: '#ef8a4b', T: '#f5c733', U: '#a3a3a8', V: '#f3ede0', W: '#25903f', X: '#e3313f', Y: '#2356b8', Z: '#2e3038' };
+  var LABEL_INK = { F: '#4a0d20', I: '#1d3a08', L: '#123a5c', N: '#f6e8f8', P: '#4a1e00', T: '#4a3400', U: '#26262a', V: '#5a4a2a', W: '#eafbe9', X: '#fff0f0', Y: '#e9f0ff', Z: '#e8e9ee' };
+  var LEVELS = [
+    { n: 6, name: 'Beginner' }, { n: 5, name: 'Easy' }, { n: 4, name: 'Medium' },
+    { n: 3, name: 'Tricky' }, { n: 2, name: 'Hard' }, { n: 1, name: 'Expert' }
+  ];
+  var KEY_SETTINGS = 'pentomino.settings.v1', KEY_FOUND = 'pentomino.found.v1', KEY_GAME = 'pentomino.game.v1';
+
+  function $(s) { return document.querySelector(s); }
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function fmtNum(n) { return n.toLocaleString('en-US'); }
+  function fmtTime(ms) { var s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60); s %= 60; if (h) return h + ':' + String(m % 60).padStart(2, '0') + ':' + String(s).padStart(2, '0'); return m + ':' + String(s).padStart(2, '0'); }
+  function fmtDate(t) { try { return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) { return ''; } }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  /* ================= Storage ================= */
+  function load(key, fallback) { try { var v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; } }
+  function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } }
+  function drop(key) { try { localStorage.removeItem(key); } catch (e) { /* ignore */ } }
+
+  var settings = Object.assign({ mode: 'free', level: 4, live: false, letters: false, sound: true }, load(KEY_SETTINGS, {}));
+  if (!LEVELS.some(function (l) { return l.n === settings.level; })) settings.level = 4;
+  function saveSettings() { save(KEY_SETTINGS, settings); }
+  // found[id] = { t: time found, ms: play time, h: hints used, m: 'free' | 'guided' }
+  var found = load(KEY_FOUND, {});
+  if (typeof found !== 'object' || Array.isArray(found)) found = {};
+  function foundCount() { return Object.keys(found).length; }
+
+  /* ================= Solution data ================= */
+  var CAT = null;            // CAT[id - 1] = canonical 60-letter string
+  var ID_OF = null;          // canonical string -> id
+  var VARIANTS = null;       // every turned/mirrored copy: { s, id }
+  function prepareCatalog() {
+    var built = buildCatalog();
+    CAT = built.list;
+    ID_OF = new Map();
+    VARIANTS = [];
+    CAT.forEach(function (s, i) {
+      ID_OF.set(s, i + 1);
+      symVariants(s).forEach(function (v) { VARIANTS.push({ s: v, id: i + 1 }); });
+    });
+  }
+
+  /* ================= Shapes ================= */
+  // Cells are [row, col]. Piece cell order never changes, so a cell keeps its index through turns.
+  function shift(cells) {
+    var mr = Infinity, mc = Infinity;
+    cells.forEach(function (p) { if (p[0] < mr) mr = p[0]; if (p[1] < mc) mc = p[1]; });
+    return cells.map(function (p) { return [p[0] - mr, p[1] - mc]; });
+  }
+  var OPS = {
+    cw: function (p) { return [p[1], -p[0]]; },
+    ccw: function (p) { return [-p[1], p[0]]; },
+    fh: function (p) { return [p[0], -p[1]]; },
+    fv: function (p) { return [-p[0], p[1]]; }
+  };
+  // Screen operation -> board operation. In portrait the board is drawn transposed,
+  // so a clockwise turn on screen is a counter-clockwise turn on the board.
+  function boardOp(op) {
+    if (!view.portrait) return op;
+    return { cw: 'ccw', ccw: 'cw', fh: 'fv', fv: 'fh' }[op];
+  }
+  function applyOp(cells, op) { return shift(cells.map(OPS[op])); }
+  function toScreen(cells) { return view.portrait ? cells.map(function (p) { return [p[1], p[0]]; }) : cells; }
+  function extent(cells) {
+    var h = 0, w = 0;
+    cells.forEach(function (p) { if (p[0] + 1 > h) h = p[0] + 1; if (p[1] + 1 > w) w = p[1] + 1; });
+    return { h: h, w: w };
+  }
+  // The cell nearest the middle of the piece: the turning point and where taps place it.
+  function centerIndex(cells) {
+    var sr = 0, sc = 0;
+    cells.forEach(function (p) { sr += p[0]; sc += p[1]; });
+    sr /= cells.length; sc /= cells.length;
+    var best = 0, bd = Infinity;
+    cells.forEach(function (p, i) { var d = (p[0] - sr) * (p[0] - sr) + (p[1] - sc) * (p[1] - sc); if (d < bd - 1e-9) { bd = d; best = i; } });
+    return best;
+  }
+
+  /* ================= Drawing ================= */
+  // SVG markup for one piece in unit coordinates (1 = one cell).
+  function pieceMarkup(L, cells, opts) {
+    opts = opts || {};
+    var set = {};
+    cells.forEach(function (p) { set[p[0] + ',' + p[1]] = 1; });
+    function has(r, c) { return set[r + ',' + c] === 1; }
+    var e = 0.055, rects = '', body = '', light = '', dark = '', edge = '';
+    cells.forEach(function (p, i) {
+      var r = p[0], c = p[1];
+      rects += '<rect class="cell" data-i="' + i + '" x="' + c + '" y="' + r + '" width="' + (has(r, c + 1) ? 1.03 : 1) + '" height="' + (has(r + 1, c) ? 1.03 : 1) + '"/>';
+      body += 'M' + c + ' ' + r + 'h1v1h-1z';
+      if (!has(r - 1, c)) { light += 'M' + c + ' ' + (r + e) + 'h1'; edge += 'M' + c + ' ' + r + 'h1'; }
+      if (!has(r, c - 1)) { light += 'M' + (c + e) + ' ' + r + 'v1'; edge += 'M' + c + ' ' + r + 'v1'; }
+      if (!has(r + 1, c)) { dark += 'M' + c + ' ' + (r + 1 - e) + 'h1'; edge += 'M' + c + ' ' + (r + 1) + 'h1'; }
+      if (!has(r, c + 1)) { dark += 'M' + (c + 1 - e) + ' ' + r + 'v1'; edge += 'M' + (c + 1) + ' ' + r + 'v1'; }
+    });
+    var lightA = L === 'V' ? '.9' : '.5';
+    var s = '<g fill="' + COLORS[L] + '">' + rects + '</g>' +
+      '<path d="' + body + '" fill="url(#pg-sheen)" pointer-events="none"/>' +
+      '<path d="' + light + '" stroke="rgba(255,255,255,' + lightA + ')" stroke-width=".085" fill="none" pointer-events="none"/>' +
+      '<path d="' + dark + '" stroke="rgba(0,0,0,.3)" stroke-width=".085" fill="none" pointer-events="none"/>' +
+      '<path d="' + edge + '" stroke="rgba(30,15,0,.6)" stroke-width=".035" stroke-linecap="square" fill="none" pointer-events="none"/>';
+    var ci = cells[centerIndex(cells)];
+    if (opts.letters) {
+      s += '<text x="' + (ci[1] + 0.5) + '" y="' + (ci[0] + 0.53) + '" text-anchor="middle" dominant-baseline="middle" font-size=".5" font-weight="900" font-family="ui-rounded, Avenir Next, Nunito, system-ui, sans-serif" fill="' + LABEL_INK[L] + '" fill-opacity=".85" pointer-events="none">' + L + '</text>';
+    }
+    if (opts.pin) {
+      var px = ci[1] + (opts.letters ? 0.2 : 0.5), py = ci[0] + (opts.letters ? 0.2 : 0.5);
+      s += '<circle cx="' + px + '" cy="' + (py + 0.03) + '" r=".12" fill="rgba(0,0,0,.35)" pointer-events="none"/>' +
+        '<circle cx="' + px + '" cy="' + py + '" r=".11" fill="url(#pg-pin)" stroke="rgba(60,30,0,.55)" stroke-width=".02" pointer-events="none"/>';
+    }
+    return s;
+  }
+  function pieceSVG(L, cells, cs, opts) {
+    var ex = extent(cells);
+    return '<svg width="' + (ex.w * cs) + '" height="' + (ex.h * cs) + '" viewBox="0 0 ' + ex.w + ' ' + ex.h + '">' + pieceMarkup(L, cells, opts) + '</svg>';
+  }
+  // A whole 60-letter solution as SVG, inside a wooden frame (used for the logo).
+  function boardSVGMarkup(s, frame) {
+    var out = '<rect x="0" y="0" width="' + (COLS + 2 * frame) + '" height="' + (ROWS + 2 * frame) + '" rx="' + frame * 0.7 + '" fill="#dcbb84"/>' +
+      '<rect x="0" y="0" width="' + (COLS + 2 * frame) + '" height="' + (ROWS + 2 * frame) + '" rx="' + frame * 0.7 + '" fill="url(#pg-sheen)"/>' +
+      '<rect x="' + frame + '" y="' + frame + '" width="' + COLS + '" height="' + ROWS + '" fill="#b48650"/>';
+    LETTERS.split('').forEach(function (L) {
+      var cells = [];
+      for (var i = 0; i < 60; i++) if (s[i] === L) cells.push([Math.floor(i / COLS), i % COLS]);
+      var mr = Math.min.apply(null, cells.map(function (p) { return p[0]; })), mc = Math.min.apply(null, cells.map(function (p) { return p[1]; }));
+      out += '<g class="' + (L === 'X' ? 'drop' : '') + '"><g transform="translate(' + (mc + frame) + ' ' + (mr + frame) + ')">' + pieceMarkup(L, shift(cells)) + '</g></g>';
+    });
+    return out;
+  }
+  // Canvas drawing for thumbnails and the solution viewer.
+  function drawSolution(ctx, s, x, y, cs) {
+    var lw = Math.max(1, cs * 0.06);
+    for (var i = 0; i < 60; i++) {
+      var r = Math.floor(i / COLS), c = i % COLS;
+      ctx.fillStyle = COLORS[s[i]];
+      ctx.fillRect(x + c * cs, y + r * cs, cs + 0.5, cs + 0.5);
+    }
+    var g = ctx.createLinearGradient(x, y, x, y + ROWS * cs);
+    g.addColorStop(0, 'rgba(255,255,255,.12)'); g.addColorStop(1, 'rgba(0,0,0,.1)');
+    ctx.fillStyle = g; ctx.fillRect(x, y, COLS * cs, ROWS * cs);
+    ctx.strokeStyle = 'rgba(25,12,0,.75)'; ctx.lineWidth = lw; ctx.lineCap = 'square';
+    ctx.beginPath();
+    for (var r2 = 0; r2 < ROWS; r2++) for (var c2 = 0; c2 < COLS; c2++) {
+      var L = s[r2 * COLS + c2];
+      if (c2 + 1 < COLS && s[r2 * COLS + c2 + 1] !== L) { ctx.moveTo(x + (c2 + 1) * cs, y + r2 * cs); ctx.lineTo(x + (c2 + 1) * cs, y + (r2 + 1) * cs); }
+      if (r2 + 1 < ROWS && s[(r2 + 1) * COLS + c2] !== L) { ctx.moveTo(x + c2 * cs, y + (r2 + 1) * cs); ctx.lineTo(x + (c2 + 1) * cs, y + (r2 + 1) * cs); }
+    }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(25,12,0,.85)'; ctx.lineWidth = lw * 1.5;
+    ctx.strokeRect(x, y, COLS * cs, ROWS * cs);
+  }
+  function solutionCanvas(s, cssW) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cv = document.createElement('canvas');
+    var cs = cssW / COLS;
+    cv.width = Math.round(cssW * dpr); cv.height = Math.round(cs * ROWS * dpr);
+    var ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    drawSolution(ctx, s, 0, 0, cs);
+    return cv;
+  }
+
+  /* ================= Sound ================= */
+  var Sound = (function () {
+    var ctx = null;
+    function init() {
+      if (ctx) return;
+      try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+      try { var AC = window.AudioContext || window.webkitAudioContext; if (AC) ctx = new AC(); } catch (e) { ctx = null; }
+    }
+    ['pointerdown', 'touchend', 'keydown'].forEach(function (ev) {
+      document.addEventListener(ev, function () {
+        init();
+        if (ctx && ctx.state !== 'running') { try { var p = ctx.resume(); if (p && p.catch) p.catch(function () {}); } catch (e) { /* ignore */ } }
+      }, true);
+    });
+    function tone(freq, dur, o) {
+      if (!settings.sound || !ctx) return;
+      o = o || {};
+      try {
+        var t0 = ctx.currentTime + (o.at || 0);
+        var osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.type = o.type || 'triangle';
+        osc.frequency.setValueAtTime(freq, t0);
+        if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t0 + dur);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(o.vol || 0.2, t0 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t0); osc.stop(t0 + dur + 0.05);
+      } catch (e) { /* ignore */ }
+    }
+    // A short wooden knock: a filtered noise burst plus a low thump.
+    function knock(pitch, vol) {
+      if (!settings.sound || !ctx) return;
+      try {
+        var t0 = ctx.currentTime, len = Math.floor(ctx.sampleRate * 0.05);
+        var buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+        var src = ctx.createBufferSource(); src.buffer = buf;
+        var f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = pitch * 4; f.Q.value = 1.4;
+        var g = ctx.createGain(); g.gain.value = vol;
+        src.connect(f); f.connect(g); g.connect(ctx.destination);
+        src.start(t0);
+      } catch (e) { /* ignore */ }
+      tone(pitch, 0.09, { type: 'sine', vol: vol * 0.6, to: pitch * 0.7 });
+    }
+    var fx = {
+      pick: function () { tone(520, 0.05, { vol: 0.07 }); },
+      place: function () { knock(260, 0.5); },
+      turn: function () { tone(740, 0.04, { vol: 0.07 }); tone(880, 0.05, { vol: 0.06, at: 0.035 }); },
+      back: function () { tone(420, 0.08, { vol: 0.08, to: 300 }); },
+      bad: function () { tone(170, 0.2, { type: 'square', to: 120, vol: 0.06 }); },
+      hint: function () { [660, 880, 1175].forEach(function (f, i) { tone(f, 0.14, { vol: 0.11, at: i * 0.07 }); }); },
+      start: function () { tone(392, 0.12, { vol: 0.16 }); tone(523, 0.12, { vol: 0.16, at: 0.09 }); tone(784, 0.2, { vol: 0.18, at: 0.18 }); },
+      win: function () { [523, 659, 784, 1047, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.22, { vol: 0.2, at: i * 0.11 }); }); },
+      again: function () { [523, 659, 784].forEach(function (f, i) { tone(f, 0.2, { vol: 0.16, at: i * 0.1 }); }); }
+    };
+    return { play: function (n) { if (fx[n]) fx[n](); } };
+  })();
+
+  /* ================= Confetti ================= */
+  var Confetti = (function () {
+    var cv = $('#confetti'), ctx = cv.getContext('2d'), parts = [], raf = 0;
+    function burst(n) {
+      var w = window.innerWidth, h = window.innerHeight, dpr = window.devicePixelRatio || 1;
+      cv.width = w * dpr; cv.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      var cols = Object.keys(COLORS).map(function (k) { return COLORS[k]; }).concat(['#ffcf5c', '#ffffff']);
+      for (var i = 0; i < n; i++) {
+        parts.push({ x: w / 2 + (Math.random() - 0.5) * w * 0.3, y: h * 0.38, vx: (Math.random() - 0.5) * 16, vy: -Math.random() * 15 - 5,
+          s: 6 + Math.random() * 8, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.4, c: pick(cols), life: 1 });
+      }
+      if (!raf) raf = requestAnimationFrame(step);
+    }
+    function step() {
+      var w = window.innerWidth, h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+      parts = parts.filter(function (p) { return p.y < h + 40 && p.life > 0; });
+      parts.forEach(function (p) {
+        p.vy += 0.38; p.vx *= 0.985; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life -= 0.004;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.globalAlpha = Math.min(1, p.life * 2);
+        ctx.fillStyle = p.c; ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+      });
+      raf = parts.length ? requestAnimationFrame(step) : 0;
+      if (!raf) ctx.clearRect(0, 0, w, h);
+    }
+    return { burst: burst };
+  })();
+
+  /* ================= Toast & modal ================= */
+  var toastTimer = 0;
+  function toast(msg, ico, bad) {
+    var t = $('#toast');
+    t.innerHTML = (ico ? '<span class="toast-ico">' + ico + '</span>' : '') + '<span>' + msg + '</span>';
+    t.classList.toggle('bad', !!bad);
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2600);
+  }
+  var modalOnClose = null;
+  function openModal(html, opts) {
+    opts = opts || {};
+    var m = $('#modal');
+    m.className = 'modal' + (opts.wide ? ' wide' : '');
+    m.innerHTML = html;
+    $('#modal-layer').hidden = false;
+    modalOnClose = opts.onClose || null;
+    var f = m.querySelector('[data-focus]') || m.querySelector('button');
+    if (f) setTimeout(function () { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } }, 30);
+    return m;
+  }
+  function closeModal() {
+    if ($('#modal-layer').hidden) return;
+    $('#modal-layer').hidden = true;
+    var cb = modalOnClose; modalOnClose = null;
+    if (cb) cb();
+  }
+  function modalOpen() { return !$('#modal-layer').hidden; }
+  $('#modal-layer').addEventListener('pointerdown', function (e) { if (e.target === this) closeModal(); });
+  function confirmModal(title, text, yesLabel, onYes, danger) {
+    var m = openModal('<h3>' + title + '</h3><p>' + text + '</p><div class="modal-actions">' +
+      '<button class="btn ghost" data-act="no" type="button">Cancel</button>' +
+      '<button class="btn ' + (danger ? 'danger' : 'primary') + '" data-act="yes" data-focus type="button">' + yesLabel + '</button></div>');
+    m.querySelector('[data-act=no]').onclick = closeModal;
+    m.querySelector('[data-act=yes]').onclick = function () { closeModal(); onYes(); };
+  }
+
+  /* ================= Screens ================= */
+  var screen = 'setup';
+  function show(id) {
+    screen = id;
+    ['setup', 'game', 'catalog'].forEach(function (s) { $('#' + s).classList.toggle('active', s === id); });
+    if (id === 'game') requestAnimationFrame(layout);
+  }
+
+  /* ================= Game state ================= */
+  // pieces[L] = { cells: board-oriented cells, at: null | {r, c}, pin: null | 'given' | 'hint' }
+  var game = null;
+  var view = { portrait: false, cs: 40, bx: 0, by: 0, slots: {}, slotIn: 50 };
+  var pieceEls = {}, slotEls = {}, boardEl = null, innerEl = null, trayEl = null, ghostEl = null;
+  var selected = null, drag = null, timerId = 0;
+
+  function basePieces() {
+    var p = {};
+    LETTERS.split('').forEach(function (L) { p[L] = { cells: shift(shapeCells(PIECES[L])), at: null, pin: null }; });
+    return p;
+  }
+  function newGame(mode, level) {
+    game = { mode: mode, level: level, pieces: basePieces(), hints: 0, elapsed: 0, started: Date.now(), target: null, solved: false, solvedId: 0, undo: [] };
+    if (mode === 'guided') {
+      var open = [];
+      for (var id = 1; id <= TOTAL; id++) if (!found[id]) open.push(id);
+      if (!open.length) { open = []; for (var j = 1; j <= TOTAL; j++) open.push(j); }
+      var sid = pick(open);
+      var target = pick(symVariants(CAT[sid - 1]));
+      game.target = target;
+      shuffle(LETTERS.split('')).slice(0, level).forEach(function (L) { placeFromSolution(L, target, 'given'); });
+    }
+    selected = null;
+    saveGame();
+  }
+  function placeFromSolution(L, s, pin) {
+    var cells = [];
+    for (var i = 0; i < 60; i++) if (s[i] === L) cells.push([Math.floor(i / COLS), i % COLS]);
+    var mr = Math.min.apply(null, cells.map(function (p) { return p[0]; })), mc = Math.min.apply(null, cells.map(function (p) { return p[1]; }));
+    var pc = game.pieces[L];
+    pc.cells = shift(cells);
+    pc.at = { r: mr, c: mc };
+    pc.pin = pin;
+  }
+  var paused = false;   // set while the page is hidden (after the time so far has been banked)
+  function elapsed() { return game ? game.elapsed + (game.solved || screen !== 'game' || paused ? 0 : Date.now() - game.started) : 0; }
+  function bankTime() { if (game && !game.solved) { game.elapsed = elapsed(); game.started = Date.now(); } }
+  function snapshot() {
+    var p = {};
+    LETTERS.split('').forEach(function (L) { var x = game.pieces[L]; p[L] = { cells: x.cells.map(function (c) { return c.slice(); }), at: x.at ? { r: x.at.r, c: x.at.c } : null, pin: x.pin }; });
+    return JSON.stringify({ p: p, h: game.hints });
+  }
+  function pushUndo() { game.undo.push(snapshot()); if (game.undo.length > 200) game.undo.shift(); }
+  function restore(snap) { var o = JSON.parse(snap); game.pieces = o.p; game.hints = o.h; }
+  function saveGame() {
+    if (!game) return;
+    bankTime();
+    save(KEY_GAME, { mode: game.mode, level: game.level, pieces: game.pieces, hints: game.hints, elapsed: game.elapsed, target: game.target, solved: game.solved, solvedId: game.solvedId });
+  }
+  function loadSavedGame() {
+    var g = load(KEY_GAME, null);
+    if (!g || !g.pieces || g.solved) return null;
+    try {
+      var ok = LETTERS.split('').every(function (L) { var p = g.pieces[L]; return p && Array.isArray(p.cells) && p.cells.length === 5; });
+      if (!ok) return null;
+      if (!LETTERS.split('').some(function (L) { return g.pieces[L].at && !g.pieces[L].pin; }) && g.mode === 'free') return null;
+    } catch (e) { return null; }
+    return g;
+  }
+
+  /* ================= Board logic ================= */
+  function grid(except) {
+    var g = new Array(60).fill(null);
+    LETTERS.split('').forEach(function (L) {
+      if (L === except) return;
+      var p = game.pieces[L];
+      if (!p.at) return;
+      p.cells.forEach(function (c) { g[(p.at.r + c[0]) * COLS + p.at.c + c[1]] = L; });
+    });
+    return g;
+  }
+  function fits(cells, at, g) {
+    for (var i = 0; i < cells.length; i++) {
+      var r = at.r + cells[i][0], c = at.c + cells[i][1];
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return false;
+      if (g[r * COLS + c]) return false;
+    }
+    return true;
+  }
+  function placedCount() { return LETTERS.split('').filter(function (L) { return game.pieces[L].at; }).length; }
+  function boardString() { return grid().map(function (x) { return x || '.'; }).join(''); }
+  // Which turned/mirrored solutions agree with every piece on the board.
+  function compatible(g) {
+    var idx = [];
+    for (var i = 0; i < 60; i++) if (g[i]) idx.push(i);
+    var out = [];
+    for (var k = 0; k < VARIANTS.length; k++) {
+      var s = VARIANTS[k].s, ok = true;
+      for (var j = 0; j < idx.length; j++) if (s[idx[j]] !== g[idx[j]]) { ok = false; break; }
+      if (ok) out.push(VARIANTS[k]);
+    }
+    return out;
+  }
+  function distinctIds(list) { var s = new Set(); list.forEach(function (v) { s.add(v.id); }); return s.size; }
+
+  /* ================= Layout ================= */
+  // Try a few arrangements (board wide or tall, tray beside or below) and keep the one with the largest cells.
+  function layout() {
+    if (screen !== 'game' || !game) return;
+    var field = $('#field'), W = field.clientWidth, H = field.clientHeight;
+    if (W < 50 || H < 50) return;
+    var pad = W < 500 ? 8 : 16, aw = W - 2 * pad, ah = H - 2 * pad;
+    var F = 0.42, GAP = 0.45, best = null;
+    [false, true].forEach(function (portrait) {
+      var bw = (portrait ? ROWS : COLS) + 2 * F, bh = (portrait ? COLS : ROWS) + 2 * F;
+      [[2, 6], [3, 4], [4, 3], [6, 2]].forEach(function (cr) {
+        var cols = cr[0], rows = cr[1];
+        // tray to the right: slots fill the board's height
+        var s1 = bh / rows, w1 = bw + GAP + cols * s1, h1 = bh;
+        // tray below: slots fill the board's width
+        var s2 = bw / cols, w2 = bw, h2 = bh + GAP + rows * s2;
+        [[w1, h1, s1, 'right'], [w2, h2, s2, 'below']].forEach(function (o) {
+          var cs = Math.min(aw / o[0], ah / o[1], 96);
+          var slotPx = o[2] * cs;
+          var score = cs * (0.55 + 0.45 * Math.min(1, slotPx / (2.2 * cs))) * (portrait ? 0.96 : 1);
+          if (slotPx < 40) score *= 0.5;
+          if (!best || score > best.score) best = { score: score, cs: cs, portrait: portrait, cols: cols, rows: rows, s: o[2], side: o[3], w: o[0], h: o[1] };
+        });
+      });
+    });
+    var cs = Math.floor(best.cs);
+    var changed = cs !== view.cs || best.portrait !== view.portrait;
+    view.cs = cs; view.portrait = best.portrait;
+    var bwc = best.portrait ? ROWS : COLS, bhc = best.portrait ? COLS : ROWS;
+    var fr = Math.round(F * cs);
+    var totalW = best.w * cs, totalH = best.h * cs;
+    var ox = Math.round((W - totalW) / 2), oy = Math.round((H - totalH) / 2);
+    // board
+    boardEl.style.left = ox + 'px'; boardEl.style.top = oy + 'px';
+    boardEl.style.width = (bwc * cs + 2 * fr) + 'px'; boardEl.style.height = (bhc * cs + 2 * fr) + 'px';
+    boardEl.style.borderRadius = Math.round(fr * 0.7) + 'px';
+    innerEl.style.left = fr + 'px'; innerEl.style.top = fr + 'px';
+    innerEl.style.width = bwc * cs + 'px'; innerEl.style.height = bhc * cs + 'px';
+    innerEl.style.backgroundSize = cs + 'px ' + cs + 'px, ' + cs + 'px ' + cs + 'px, auto, auto';
+    innerEl.style.backgroundPosition = '-1px -1px, -1px -1px, 0 0, 0 0';
+    view.bx = ox + fr; view.by = oy + fr;
+    // tray
+    var slot = best.s * cs, tx, ty, tw, th;
+    if (best.side === 'right') { tx = ox + (bwc * cs + 2 * fr) + Math.round(GAP * cs); ty = oy; }
+    else { tx = ox; ty = oy + (bhc * cs + 2 * fr) + Math.round(GAP * cs); }
+    tw = best.cols * slot; th = best.rows * slot;
+    trayEl.style.left = tx + 'px'; trayEl.style.top = ty + 'px';
+    trayEl.style.width = tw + 'px'; trayEl.style.height = th + 'px';
+    trayEl.style.borderRadius = Math.round(fr * 0.7) + 'px';
+    var inset = Math.max(4, slot * 0.07);
+    view.slotIn = slot - 2 * inset;
+    LETTERS.split('').forEach(function (L, i) {
+      var col = i % best.cols, row = Math.floor(i / best.cols);
+      var sx = tx + col * slot, sy = ty + row * slot;
+      view.slots[L] = { x: sx + slot / 2, y: sy + slot / 2 };
+      var se = slotEls[L];
+      se.style.left = (sx + inset) + 'px'; se.style.top = (sy + inset) + 'px';
+      se.style.width = (slot - 2 * inset) + 'px'; se.style.height = (slot - 2 * inset) + 'px';
+      se.style.setProperty('--fs', Math.max(10, Math.round(slot * 0.12)) + 'px');
+    });
+    LETTERS.split('').forEach(function (L) { renderPiece(L, changed); });
+  }
+
+  /* ================= Rendering ================= */
+  function buildStage() {
+    var st = $('#stage');
+    st.innerHTML = '';
+    boardEl = el('div', 'wood board'); innerEl = el('div', 'board-inner');
+    boardEl.appendChild(innerEl);
+    trayEl = el('div', 'wood tray');
+    st.appendChild(boardEl); st.appendChild(trayEl);
+    LETTERS.split('').forEach(function (L) {
+      var s = el('div', 'tray-slot', '<span>' + L + '</span>'); s.dataset.l = L;
+      slotEls[L] = s; st.appendChild(s);
+    });
+    ghostEl = el('div', 'drop-ghost'); ghostEl.hidden = true; st.appendChild(ghostEl);
+    LETTERS.split('').forEach(function (L) {
+      var p = el('div', 'piece'); p.dataset.l = L;
+      pieceEls[L] = p; st.appendChild(p);
+    });
+  }
+  function pieceKey(L) { var p = game.pieces[L]; return JSON.stringify([p.cells, view.portrait, view.cs, !!p.pin, settings.letters]); }
+  function renderPiece(L, force) {
+    var p = game.pieces[L], e = pieceEls[L];
+    var key = pieceKey(L);
+    if (force || e.dataset.key !== key) {
+      e.innerHTML = pieceSVG(L, toScreen(p.cells), view.cs, { letters: settings.letters, pin: !!p.pin });
+      e.dataset.key = key;
+    }
+    e.classList.toggle('locked', !!p.pin);
+    e.classList.toggle('placed', !!p.at);
+    e.classList.toggle('sel', selected === L);
+    slotEls[L].classList.toggle('sel', selected === L && !p.at);
+    if (drag && drag.moved && drag.L === L) return;
+    positionPiece(L);
+  }
+  function positionPiece(L) {
+    var p = game.pieces[L], e = pieceEls[L], x, y, k = 1;
+    if (p.at) {
+      var so = view.portrait ? { r: p.at.c, c: p.at.r } : p.at;
+      x = view.bx + so.c * view.cs; y = view.by + so.r * view.cs;
+    } else {
+      var ex = extent(toScreen(p.cells)), sl = view.slots[L];
+      var tcs = view.slotIn / Math.max(4.2, Math.max(ex.w, ex.h) + 0.3);
+      k = tcs / view.cs;
+      x = sl.x - ex.w * tcs / 2; y = sl.y - ex.h * tcs / 2;
+    }
+    e.style.transform = 'translate(' + x + 'px,' + y + 'px) scale(' + k + ')';
+  }
+  function renderAll() { LETTERS.split('').forEach(function (L) { renderPiece(L); }); updateUI(); }
+  function flash(L, cls) {
+    var e = pieceEls[L]; if (!e) return;
+    e.classList.remove(cls); void e.offsetWidth; e.classList.add(cls);
+    setTimeout(function () { e.classList.remove(cls); }, cls === 'warn' ? 2800 : 400);
+  }
+  function showGhost(L, cells, at) {
+    if (!at) { ghostEl.hidden = true; return; }
+    var sc = toScreen(cells), so = view.portrait ? { r: at.c, c: at.r } : at;
+    var key = L + JSON.stringify(sc) + view.cs;
+    if (ghostEl.dataset.key !== key) { ghostEl.innerHTML = pieceSVG(L, sc, view.cs, {}); ghostEl.dataset.key = key; }
+    ghostEl.style.transform = 'translate(' + (view.bx + so.c * view.cs) + 'px,' + (view.by + so.r * view.cs) + 'px)';
+    ghostEl.hidden = false;
+  }
+
+  /* ================= UI state ================= */
+  function setStatus(html) { $('#status-main').innerHTML = html; }
+  function updateUI() {
+    if (!game) return;
+    var sel = selected ? game.pieces[selected] : null;
+    var canAct = !!sel && !sel.pin;
+    $('#rot-btn').disabled = !canAct;
+    $('#flip-btn').disabled = !canAct;
+    $('#ret-btn').disabled = !(canAct && sel.at);
+    $('#undo-btn').disabled = !game.undo.length;
+    $('#clear-btn').disabled = !LETTERS.split('').some(function (L) { var p = game.pieces[L]; return p.at && p.pin !== 'given'; });
+    $('#hint-btn').disabled = game.solved;
+    // status line
+    if (game.solved) {
+      setStatus('Solved! This is solution <b>#' + fmtNum(game.solvedId) + '</b>. Move a piece to look for another, or press <b>New</b>.');
+    } else if (selected && !sel.pin) {
+      setStatus(sel.at
+        ? 'Tap the <b>' + selected + '</b> again to turn it, or drag it somewhere else.'
+        : 'Tap a square on the board to place the <b>' + selected + '</b>. Tap it again to turn it.');
+    } else if (placedCount() === 0) {
+      setStatus('Drag a piece onto the board, or tap a piece and then tap the board.');
+    } else {
+      var left = 12 - placedCount();
+      setStatus('<b>' + left + '</b> piece' + (left === 1 ? '' : 's') + ' left to place.');
+    }
+    // live check
+    var chip = $('#live-chip');
+    if (settings.live && !game.solved && VARIANTS) {
+      var n = distinctIds(compatible(grid()));
+      chip.hidden = false;
+      chip.className = 'chip ' + (n ? 'good' : 'bad');
+      chip.textContent = n ? '✓ ' + fmtNum(n) + (n === 1 ? ' way' : ' ways') + ' to finish' : '✗ No way to finish';
+    } else chip.hidden = true;
+    updateInfo();
+  }
+  function updateInfo() {
+    if (!game) return;
+    var mode = game.mode === 'free' ? 'Free play' : 'Guided · ' + game.level + ' pinned';
+    var hints = game.hints ? '<span class="ri-x"> · 💡' + game.hints + '</span>' : '';
+    $('#round-info').innerHTML = '<span class="ri-mode"><b>' + mode + '</b> · </span>⏱ ' + fmtTime(elapsed()) + hints + ' · <span title="Solutions found">📚 ' + fmtNum(foundCount()) + '<span class="ri-x"> / ' + fmtNum(TOTAL) + '</span></span>';
+  }
+
+  /* ================= Actions ================= */
+  function select(L) {
+    selected = L;
+    LETTERS.split('').forEach(function (k) { pieceEls[k].classList.toggle('sel', selected === k); slotEls[k].classList.toggle('sel', selected === k && !game.pieces[k].at); });
+    if (!L) ghostEl.hidden = true;
+    updateUI();
+  }
+  function afterChange(sound) {
+    if (sound) Sound.play(sound);
+    renderAll();
+    saveGame();
+    checkComplete();
+  }
+  function placeAt(L, at) {
+    var p = game.pieces[L];
+    p.at = at;
+    afterChange('place');
+    flash(L, 'pop');
+  }
+  function returnToTray(L, quiet) {
+    var p = game.pieces[L];
+    if (!p || p.pin || !p.at) return;
+    pushUndo();
+    p.at = null;
+    if (game.solved) unsolve();
+    if (selected === L) selected = null;
+    afterChange(quiet ? null : 'back');
+  }
+  // Find a spot near `cell` for the piece: first with its middle on that cell, then any of its cells.
+  function spotFor(cells, cell, g) {
+    var order = [centerIndex(cells)];
+    for (var i = 0; i < cells.length; i++) if (order.indexOf(i) < 0) order.push(i);
+    for (var k = 0; k < order.length; k++) {
+      var c = cells[order[k]], at = { r: cell.r - c[0], c: cell.c - c[1] };
+      if (fits(cells, at, g)) return at;
+    }
+    return null;
+  }
+  // Turn or flip a piece. On the board it turns about its middle cell and nudges to fit.
+  function transform(L, op) {
+    var p = game.pieces[L];
+    if (!p || p.pin) { if (p && p.pin) toast('That piece is pinned in place.', '📌'); return; }
+    var bop = boardOp(op);
+    var ci = centerIndex(p.cells);
+    var nc = applyOp(p.cells, bop);
+    if (!p.at) { pushUndo(); p.cells = nc; afterChange('turn'); return; }
+    var g = grid(L);
+    var pivot = { r: p.at.r + p.cells[ci][0], c: p.at.c + p.cells[ci][1] };
+    var base = { r: pivot.r - nc[ci][0], c: pivot.c - nc[ci][1] };
+    var tries = [[0, 0], [0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1], [0, 2], [0, -2], [2, 0], [-2, 0]];
+    for (var t = 0; t < tries.length; t++) {
+      var at = { r: base.r + tries[t][0], c: base.c + tries[t][1] };
+      if (fits(nc, at, g)) { pushUndo(); if (game.solved) unsolve(); p.cells = nc; p.at = at; afterChange('turn'); return; }
+    }
+    Sound.play('bad'); flash(L, 'shake');
+    toast('No room to turn it here.', '↻', true);
+  }
+  function undo() {
+    if (!game || !game.undo.length || drag) return;
+    restore(game.undo.pop());
+    if (game.solved) unsolve();
+    if (selected && game.pieces[selected].pin) selected = null;
+    afterChange('back');
+  }
+  function clearBoard() {
+    if (!game || drag) return;
+    var any = LETTERS.split('').some(function (L) { var p = game.pieces[L]; return p.at && p.pin !== 'given'; });
+    if (!any) return;
+    pushUndo();
+    LETTERS.split('').forEach(function (L) { var p = game.pieces[L]; if (p.at && p.pin !== 'given') { p.at = null; p.pin = null; } });
+    if (game.solved) unsolve();
+    selected = null;
+    afterChange('back');
+  }
+  function unsolve() {
+    game.solved = false; game.solvedId = 0; game.started = Date.now();
+    $('#stage').classList.remove('won');
+  }
+
+  /* ================= Hint ================= */
+  function hint() {
+    if (!game || game.solved || drag) return;
+    var g = grid();
+    var comp = compatible(g);
+    if (!comp.length) {
+      // Find the pieces whose removal would make the board solvable again.
+      var culprits = LETTERS.split('').filter(function (L) {
+        var p = game.pieces[L];
+        return p.at && !p.pin && compatible(grid(L)).length > 0;
+      });
+      Sound.play('bad');
+      culprits.forEach(function (L) { flash(L, 'warn'); });
+      if (culprits.length) toast('No solution fits this board. Move one of the flashing pieces.', '⚠️', true);
+      else toast('No solution fits this board. Try moving a few pieces.', '⚠️', true);
+      setStatus('<b>No way to finish from here.</b> ' + (culprits.length ? 'Moving one of the flashing pieces would fix it.' : 'Try returning some pieces to the tray.'));
+      return;
+    }
+    var pool = null;
+    if (game.target) { var tg = comp.filter(function (v) { return v.s === game.target; }); if (tg.length) pool = tg; }
+    if (!pool) { var fresh = comp.filter(function (v) { return !found[v.id]; }); pool = fresh.length ? fresh : comp; }
+    var v = pick(pool);
+    // place the piece covering the first empty square in screen reading order
+    var L = null;
+    for (var sr = 0; sr < (view.portrait ? COLS : ROWS) && !L; sr++) for (var sc = 0; sc < (view.portrait ? ROWS : COLS) && !L; sc++) {
+      var i = view.portrait ? sc * COLS + sr : sr * COLS + sc;
+      if (!g[i]) L = v.s[i];
+    }
+    if (!L) return;
+    pushUndo();
+    placeFromSolution(L, v.s, 'hint');
+    game.hints++;
+    if (selected === L) selected = null;
+    Sound.play('hint');
+    renderAll();
+    flash(L, 'pop');
+    saveGame();
+    checkComplete();
+  }
+
+  /* ================= Completion ================= */
+  function checkComplete() {
+    if (game.solved || placedCount() < 12) return;
+    var s = boardString();
+    if (s.indexOf('.') >= 0) return;
+    var id = ID_OF.get(canonical(s));
+    if (!id) return;          // cannot happen for a full board, but stay safe
+    bankTime();
+    game.solved = true; game.solvedId = id;
+    selected = null;
+    var isNew = !found[id];
+    var rec = found[id];
+    if (isNew) { found[id] = { t: Date.now(), ms: game.elapsed, h: game.hints, m: game.mode }; save(KEY_FOUND, found); }
+    saveGame();
+    renderAll();
+    $('#stage').classList.add('won');
+    // Tinkering often rebuilds the board just solved: say so quietly instead of repeating the popup.
+    if (!isNew && game.lastShownId === id) { Sound.play('again'); toast('That\'s solution #' + fmtNum(id) + ' again.', '🧩'); return; }
+    game.lastShownId = id;
+    setTimeout(function () {
+      if (isNew) { Sound.play('win'); Confetti.burst(160); } else Sound.play('again');
+      showSolvedModal(id, isNew, rec);
+    }, 450);
+  }
+  function showSolvedModal(id, isNew, rec) {
+    var n = foundCount();
+    var html = '<div class="modal-ico">' + (isNew ? '🎉' : '🧩') + '</div>' +
+      '<h3>' + (isNew ? 'New solution found!' : 'Solved, but you\'ve found this one before') + '</h3>' +
+      '<div class="sol-id' + (isNew ? '' : ' seen') + '">#' + fmtNum(id) + '</div>' +
+      '<p>' + (isNew
+        ? 'It\'s now in your catalog. You have found <b>' + fmtNum(n) + '</b> of <b>2,339</b>.'
+        : 'You first found solution #' + fmtNum(id) + ' on <b>' + fmtDate(rec.t) + '</b>. Turned or mirrored copies count as the same solution.') + '</p>' +
+      '<div class="stats-row"><span class="chip">⏱ ' + fmtTime(game.elapsed) + '</span><span class="chip">💡 ' + game.hints + (game.hints === 1 ? ' hint' : ' hints') + '</span><span class="chip">📚 ' + fmtNum(n) + ' / 2,339</span></div>' +
+      '<div class="modal-actions">' +
+      '<button class="btn ghost" data-act="keep" type="button">Keep tinkering</button>' +
+      '<button class="btn ghost" data-act="cat" type="button">Catalog</button>' +
+      '<button class="btn primary" data-act="new" data-focus type="button">New board</button></div>' +
+      '<p class="hint">Tip: swapping two or three pieces in a finished board often makes a brand new solution.</p>';
+    var m = openModal(html);
+    m.querySelector('[data-act=keep]').onclick = closeModal;
+    m.querySelector('[data-act=cat]').onclick = function () { closeModal(); openCatalog('game'); };
+    m.querySelector('[data-act=new]').onclick = function () { closeModal(); startGame(); };
+  }
+
+  /* ================= Pointer input ================= */
+  function stagePoint(e) { var r = $('#stage').getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function boardCellAt(pt) {
+    var sc = Math.floor((pt.x - view.bx) / view.cs), sr = Math.floor((pt.y - view.by) / view.cs);
+    var sw = view.portrait ? ROWS : COLS, sh = view.portrait ? COLS : ROWS;
+    if (sc < 0 || sr < 0 || sc >= sw || sr >= sh) return null;
+    return view.portrait ? { r: sc, c: sr } : { r: sr, c: sc };
+  }
+  function overBoard(pt) {
+    var sw = (view.portrait ? ROWS : COLS) * view.cs, sh = (view.portrait ? COLS : ROWS) * view.cs, m = view.cs * 0.6;
+    return pt.x > view.bx - m && pt.y > view.by - m && pt.x < view.bx + sw + m && pt.y < view.by + sh + m;
+  }
+  // Where the dragged piece would land: snap its top-left to the nearest cell.
+  // Forgiving: if the nearest spot is blocked, try the spots around it (closest first, up to one square away).
+  function dragTarget(d) {
+    var p = game.pieces[d.L];
+    var fc = (d.x - view.bx) / view.cs, fr = (d.y - view.by) / view.cs;
+    var cands = [];
+    for (var dr = -1; dr <= 2; dr++) for (var dc = -1; dc <= 2; dc++) {
+      var sr = Math.floor(fr) + dr, sc = Math.floor(fc) + dc;
+      var dist = Math.hypot(sr - fr, sc - fc);
+      if (dist <= 1.25) cands.push({ sr: sr, sc: sc, d: dist });
+    }
+    cands.sort(function (a, b) { return a.d - b.d; });
+    for (var i = 0; i < cands.length; i++) {
+      var at = view.portrait ? { r: cands[i].sc, c: cands[i].sr } : { r: cands[i].sr, c: cands[i].sc };
+      if (fits(p.cells, at, d.grid)) return at;
+    }
+    return null;
+  }
+  function positionDrag() {
+    var p = game.pieces[drag.L];
+    var sc = toScreen(p.cells)[drag.i];
+    drag.x = drag.px - (sc[1] + 0.5) * view.cs;
+    drag.y = drag.py - (sc[0] + 0.5) * view.cs + drag.lift;
+    pieceEls[drag.L].style.transform = 'translate(' + drag.x + 'px,' + drag.y + 'px) scale(1)';
+    showGhost(drag.L, p.cells, dragTarget(drag));
+  }
+  function beginDrag() {
+    var p = game.pieces[drag.L];
+    drag.moved = true;
+    drag.before = snapshot();
+    drag.from = p.at;
+    if (p.at) { p.at = null; if (game.solved) unsolve(); }
+    drag.grid = grid(drag.L);
+    selected = drag.L;
+    var e = pieceEls[drag.L];
+    e.classList.add('dragging', 'lifting');
+    LETTERS.split('').forEach(function (k) { pieceEls[k].classList.toggle('sel', k === drag.L); slotEls[k].classList.remove('sel'); });
+    setTimeout(function () { e.classList.remove('lifting'); }, 120);
+    Sound.play('pick');
+    positionDrag();
+  }
+  function endDrag(cancel) {
+    var d = drag; drag = null;
+    var L = d.L, p = game.pieces[L], e = pieceEls[L];
+    e.classList.remove('dragging');
+    ghostEl.hidden = true;
+    var at = cancel ? null : dragTarget(d);
+    var pt = { x: d.px, y: d.py + d.lift };
+    if (at) {
+      p.at = at;
+    } else if (!cancel && !overBoard(pt)) {
+      p.at = null;                     // dropped away from the board: back to the tray
+    } else {
+      p.at = d.from;                   // a bad spot on the board: go back where it came from
+      if (!cancel) { Sound.play('bad'); }
+    }
+    var changed = snapshot() !== d.before;
+    if (changed) game.undo.push(d.before);
+    if (at) { afterChange('place'); flash(L, 'pop'); }
+    else afterChange(changed ? 'back' : null);
+  }
+  function setupPointer() {
+    var st = $('#stage');
+    st.addEventListener('pointerdown', function (e) {
+      if (drag || modalOpen() || !game) return;
+      if (e.button !== 0 && e.pointerType === 'mouse') return;
+      var cell = e.target.closest && e.target.closest('.cell');
+      var slotEl = !cell && e.target.closest && e.target.closest('.tray-slot');
+      var pt = stagePoint(e);
+      // A tap anywhere in a tray slot picks up the piece sitting in it (bigger target on small screens).
+      if (slotEl && !game.pieces[slotEl.dataset.l].at) {
+        var SL = slotEl.dataset.l;
+        cell = pieceEls[SL].querySelector('.cell[data-i="' + centerIndex(game.pieces[SL].cells) + '"]');
+      }
+      if (cell) {
+        var L = cell.closest('.piece').dataset.l, p = game.pieces[L];
+        if (p.pin) { toast(p.pin === 'given' ? 'This piece is pinned in place for the puzzle.' : 'Hint pieces stay pinned. Use Undo to take one back.', '📌'); return; }
+        if (game.solved) { /* a finished board can still be changed to look for another solution */ }
+        drag = { L: L, i: +cell.dataset.i, id: e.pointerId, sx: e.clientX, sy: e.clientY, px: pt.x, py: pt.y, moved: false, lift: e.pointerType === 'touch' ? -view.cs * 0.35 : 0 };
+        try { st.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+        e.preventDefault();
+        return;
+      }
+      // Tap on the board with a piece selected: put it there.
+      var bc = boardCellAt(pt);
+      if (bc && selected) {
+        var sp = game.pieces[selected];
+        if (sp.pin) { select(null); return; }
+        var g = grid(selected);
+        if (g[bc.r * COLS + bc.c]) { select(null); return; }
+        var at = spotFor(sp.cells, bc, g);
+        if (at) { pushUndo(); var L2 = selected; if (game.solved) unsolve(); selected = null; placeAt(L2, at); }
+        else { Sound.play('bad'); flash(selected, 'shake'); toast('It doesn\'t fit there. Try turning it.', '↻', true); }
+        return;
+      }
+      if (selected) select(null);
+    });
+    st.addEventListener('pointermove', function (e) {
+      var pt = stagePoint(e);
+      if (drag && e.pointerId === drag.id) {
+        drag.px = pt.x; drag.py = pt.y;
+        if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) beginDrag();
+        else if (drag.moved) positionDrag();
+        return;
+      }
+      // Hover preview for a selected tray piece (mouse only).
+      if (!drag && selected && e.pointerType === 'mouse' && game && !game.pieces[selected].at && !game.pieces[selected].pin) {
+        var bc = boardCellAt(pt);
+        if (bc) { var g = grid(selected); showGhost(selected, game.pieces[selected].cells, g[bc.r * COLS + bc.c] ? null : spotFor(game.pieces[selected].cells, bc, g)); }
+        else ghostEl.hidden = true;
+      }
+    });
+    function up(e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (drag.moved) { endDrag(e.type === 'pointercancel'); return; }
+      var L = drag.L; drag = null;
+      if (selected === L) transform(L, 'cw');           // tap a selected piece to turn it
+      else { select(L); Sound.play('pick'); }
+    }
+    st.addEventListener('pointerup', up);
+    st.addEventListener('pointercancel', up);
+    st.addEventListener('pointerleave', function (e) { if (!drag && e.pointerType === 'mouse') ghostEl.hidden = true; });
+    st.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+      var cell = e.target.closest && e.target.closest('.cell');
+      if (cell && !drag) { var L = cell.closest('.piece').dataset.l; if (game.pieces[L].at && !game.pieces[L].pin) returnToTray(L); }
+    });
+    // Mouse wheel turns a piece while dragging it.
+    st.addEventListener('wheel', function (e) {
+      if (!drag || !drag.moved) return;
+      e.preventDefault();
+      turnDragged(e.deltaY > 0 ? 'cw' : 'ccw');
+    }, { passive: false });
+  }
+  function turnDragged(op) {
+    var p = game.pieces[drag.L];
+    p.cells = applyOp(p.cells, boardOp(op));
+    renderPiece(drag.L);
+    positionDrag();
+    Sound.play('turn');
+  }
+  function transformSelected(op) {
+    if (drag && drag.moved) { turnDragged(op); return; }
+    if (!selected) { toast('Pick a piece first.', '👆'); return; }
+    transform(selected, op);
+  }
+
+  /* ================= Keyboard ================= */
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /input|textarea/i.test(e.target.tagName)) return;
+    if (modalOpen()) { if (e.key === 'Escape') closeModal(); return; }
+    if (screen === 'catalog' && e.key === 'Escape') { $('#cat-back').click(); return; }
+    if (screen !== 'game' || !game) return;
+    var k = e.key;
+    if ((e.metaKey || e.ctrlKey) && (k === 'z' || k === 'Z')) { e.preventDefault(); undo(); return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (k === 'r' || k === 'R') { e.preventDefault(); transformSelected(e.shiftKey ? 'ccw' : 'cw'); }
+    else if (k === 'e' || k === 'E') { e.preventDefault(); transformSelected('ccw'); }
+    else if (k === 'f' || k === 'F') { e.preventDefault(); transformSelected('fh'); }
+    else if (k === 'h' || k === 'H') { e.preventDefault(); hint(); }
+    else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (selected) returnToTray(selected); }
+    else if (k === 'Escape') { if (drag && drag.moved) endDrag(true); select(null); }
+    else if (k === 'Tab') {
+      e.preventDefault();
+      var free = LETTERS.split('').filter(function (L) { return !game.pieces[L].pin; });
+      if (!free.length) return;
+      var i = free.indexOf(selected);
+      select(free[(i + (e.shiftKey ? free.length - 1 : 1)) % free.length]);
+    } else if (/^Arrow/.test(k) && selected && !drag) {
+      e.preventDefault();
+      var p = game.pieces[selected];
+      if (p.pin) return;
+      var d = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
+      if (view.portrait) d = [d[1], d[0]];
+      var g = grid(selected);
+      if (!p.at) {   // first arrow press brings a tray piece onto the board at the first spot it fits
+        for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) if (!p.at && fits(p.cells, { r: r, c: c }, g)) { pushUndo(); p.at = { r: r, c: c }; }
+        if (p.at) afterChange('place'); else { Sound.play('bad'); toast('There is no room for that piece.', '↻', true); }
+        return;
+      }
+      var at = { r: p.at.r + d[0], c: p.at.c + d[1] };
+      if (fits(p.cells, at, g)) { pushUndo(); if (game.solved) unsolve(); p.at = at; afterChange('turn'); }
+      else { Sound.play('bad'); flash(selected, 'shake'); }
+    } else if (k === 'Enter' && selected) { select(null); }
+  });
+
+  /* ================= Game flow ================= */
+  function startGame(resume) {
+    if (!CAT) return;
+    if (resume) {
+      game = { mode: resume.mode, level: resume.level, pieces: resume.pieces, hints: resume.hints || 0, elapsed: resume.elapsed || 0, started: Date.now(), target: resume.target || null, solved: false, solvedId: 0, undo: [] };
+    } else {
+      newGame(settings.mode, settings.level);
+    }
+    $('#stage').classList.remove('won');
+    selected = null;
+    show('game');
+    LETTERS.split('').forEach(function (L) { pieceEls[L].dataset.key = ''; });
+    var st = $('#stage');
+    st.classList.add('no-anim');
+    layout();
+    renderAll();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { st.classList.remove('no-anim'); }); });
+    Sound.play('start');
+    if (!settings.seenHelp) { settings.seenHelp = true; saveSettings(); setTimeout(function () { if (screen === 'game' && !modalOpen()) $('#help-btn').click(); }, 500); }
+    clearInterval(timerId);
+    timerId = setInterval(updateInfo, 1000);
+  }
+  function confirmNew() {
+    var busy = game && !game.solved && LETTERS.split('').some(function (L) { var p = game.pieces[L]; return p.at && p.pin !== 'given'; });
+    if (busy) confirmModal('Start a new board?', 'The pieces you have placed will be cleared.', 'New board', startGame);
+    else startGame();
+  }
+
+  /* ================= Catalog screen ================= */
+  var catSort = 'num', catShown = 0, catFrom = 'setup', CAT_PAGE = 48;
+  function foundIds() {
+    var ids = Object.keys(found).map(Number).filter(function (n) { return n >= 1 && n <= TOTAL; });
+    if (catSort === 'new') ids.sort(function (a, b) { return (found[b].t || 0) - (found[a].t || 0) || a - b; });
+    else ids.sort(function (a, b) { return a - b; });
+    return ids;
+  }
+  function openCatalog(from) {
+    catFrom = from || 'setup';
+    bankTime();
+    show('catalog');
+    renderCatalog();
+  }
+  function renderProgress() {
+    var n = foundCount(), pct = n / TOTAL * 100;
+    ['#setup-count', '#cat-count'].forEach(function (s) { $(s).innerHTML = fmtNum(n) + ' <small>/ 2,339</small>'; });
+    ['#setup-bar', '#cat-bar'].forEach(function (s) { $(s).style.width = Math.max(n ? 0.6 : 0, pct) + '%'; });
+    $('#cat-pct').textContent = (pct < 1 && n ? pct.toFixed(2) : pct.toFixed(1)) + '% complete';
+  }
+  function renderCatalog() {
+    renderProgress();
+    drawMap();
+    var box = $('#thumbs');
+    box.innerHTML = '';
+    catShown = 0;
+    $('#thumbs-empty').hidden = foundCount() > 0;
+    moreThumbs();
+  }
+  function moreThumbs() {
+    var ids = foundIds(), box = $('#thumbs');
+    var end = Math.min(ids.length, catShown + CAT_PAGE);
+    for (var k = catShown; k < end; k++) {
+      (function (id) {
+        var b = el('button', 'thumb'); b.type = 'button';
+        b.setAttribute('aria-label', 'Solution ' + id);
+        b.appendChild(solutionCanvas(CAT[id - 1], 160));
+        var f = found[id];
+        b.appendChild(el('div', 'thumb-meta', '<b>#' + fmtNum(id) + '</b><span>' + fmtDate(f.t) + '</span>'));
+        b.onclick = function () { viewSolution(id); };
+        box.appendChild(b);
+      })(ids[k]);
+    }
+    catShown = end;
+    $('#thumbs-more').hidden = catShown >= ids.length;
+    $('#thumbs-more').textContent = 'Show more (' + fmtNum(ids.length - catShown) + ' left)';
+  }
+  var MAP_COLS = 60;
+  function drawMap() {
+    var cv = $('#map'), w = cv.clientWidth || 600;
+    MAP_COLS = Math.min(120, Math.max(40, Math.round(w / 11)));
+    var sq = w / MAP_COLS, rows = Math.ceil(TOTAL / MAP_COLS), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.style.height = Math.round(sq * rows) + 'px';
+    cv.width = Math.round(w * dpr); cv.height = Math.round(sq * rows * dpr);
+    var ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var g = sq > 6 ? 1 : 0.5;
+    for (var i = 0; i < TOTAL; i++) {
+      var x = (i % MAP_COLS) * sq, y = Math.floor(i / MAP_COLS) * sq;
+      ctx.fillStyle = found[i + 1] ? '#ffcf5c' : 'rgba(255,255,255,.1)';
+      ctx.fillRect(x + g / 2, y + g / 2, sq - g, sq - g);
+    }
+  }
+  $('#map').addEventListener('click', function (e) {
+    var r = this.getBoundingClientRect(), sq = r.width / MAP_COLS;
+    var i = Math.floor((e.clientY - r.top) / sq) * MAP_COLS + Math.floor((e.clientX - r.left) / sq);
+    var id = i + 1;
+    if (id < 1 || id > TOTAL) return;
+    if (found[id]) viewSolution(id);
+    else toast('Solution #' + fmtNum(id) + ' is still waiting to be found.', '🔍');
+  });
+  function viewSolution(id) {
+    var ids = foundIds(), pos = ids.indexOf(id), f = found[id];
+    var m = openModal('<h3>Solution #' + fmtNum(id) + '</h3>' +
+      '<p>Found on <b>' + fmtDate(f.t) + '</b>' + (f.ms != null ? ' in <b>' + fmtTime(f.ms) + '</b>' : '') +
+      (f.h ? ' with <b>' + f.h + (f.h === 1 ? ' hint' : ' hints') + '</b>' : f.h === 0 ? ' with no hints' : '') +
+      (f.m === 'guided' ? ' (guided)' : f.m === 'free' ? ' (free play)' : '') + '.</p>' +
+      '<div class="modal-board" id="mb"></div>' +
+      '<div class="modal-actions">' +
+      '<button class="btn ghost" data-act="prev" type="button"' + (pos <= 0 ? ' disabled' : '') + '>‹ Previous</button>' +
+      '<button class="btn primary" data-act="close" data-focus type="button">Close</button>' +
+      '<button class="btn ghost" data-act="next" type="button"' + (pos >= ids.length - 1 ? ' disabled' : '') + '>Next ›</button></div>', { wide: true });
+    var mb = m.querySelector('#mb');
+    mb.appendChild(solutionCanvas(CAT[id - 1], Math.min(640, (m.clientWidth || 600) - 40)));
+    m.querySelector('[data-act=close]').onclick = closeModal;
+    m.querySelector('[data-act=prev]').onclick = function () { if (pos > 0) viewSolution(ids[pos - 1]); };
+    m.querySelector('[data-act=next]').onclick = function () { if (pos < ids.length - 1) viewSolution(ids[pos + 1]); };
+  }
+
+  /* ================= Setup screen ================= */
+  function segmented(container, opts, value, onPick) {
+    var box = $(container);
+    box.innerHTML = '';
+    opts.forEach(function (o) {
+      var b = el('button', 'seg' + (o.v === value ? ' on' : ''), o.label);
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', o.v === value ? 'true' : 'false');
+      b.onclick = function () { onPick(o.v); };
+      box.appendChild(b);
+    });
+  }
+  function miniPiece(L, rows) { var c = shift(shapeCells(rows || PIECES[L])), ex = extent(c); return '<svg viewBox="-.1 -.1 ' + (ex.w + 0.2) + ' ' + (ex.h + 0.2) + '">' + pieceMarkup(L, c) + '</svg>'; }
+  function renderSetup() {
+    var modes = $('#modes');
+    modes.innerHTML = '';
+    [
+      { v: 'free', num: 'Free play', name: 'Start from scratch', desc: 'An empty tray and all 12 pieces. Fill it any way you like. Each new arrangement goes into your catalog.', art: miniPiece('F') + miniPiece('X') + miniPiece('W') },
+      { v: 'guided', num: 'Guided', name: 'Pinned pieces', desc: 'Some pieces of a solution you haven\'t found yet are pinned in place. Fit the rest around them.', art: miniPiece('L') + miniPiece('P') + miniPiece('T') }
+    ].forEach(function (m) {
+      var b = el('button', 'tile mode-tile' + (settings.mode === m.v ? ' on' : ''),
+        '<div class="tile-art" style="gap:10px">' + m.art + '</div><div class="tile-num">' + m.num + '</div><div class="tile-name">' + m.name + '</div><div class="tile-desc">' + m.desc + '</div>');
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', settings.mode === m.v ? 'true' : 'false');
+      b.onclick = function () { settings.mode = m.v; saveSettings(); renderSetup(); };
+      modes.appendChild(b);
+    });
+    $('#level-panel').hidden = settings.mode !== 'guided';
+    var lv = $('#levels');
+    lv.innerHTML = '';
+    LEVELS.forEach(function (l) {
+      var pins = '';
+      for (var i = 0; i < 6; i++) pins += '<svg viewBox="0 0 1 1" style="height:16px;width:16px;opacity:' + (i < l.n ? 1 : 0.18) + '"><circle cx=".5" cy=".5" r=".4" fill="url(#pg-pin)" stroke="rgba(0,0,0,.4)" stroke-width=".06"/></svg>';
+      var b = el('button', 'tile' + (settings.level === l.n ? ' on' : ''),
+        '<div class="tile-art" style="gap:2px;flex-wrap:wrap;height:auto;min-height:34px">' + pins + '</div><div class="tile-num">' + l.n + ' pinned</div><div class="tile-name">' + l.name + '</div>');
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', settings.level === l.n ? 'true' : 'false');
+      b.onclick = function () { settings.level = l.n; saveSettings(); renderSetup(); };
+      lv.appendChild(b);
+    });
+    var onoff = [{ v: false, label: 'Off' }, { v: true, label: 'On' }];
+    segmented('#opt-live', onoff, settings.live, function (v) { settings.live = v; saveSettings(); renderSetup(); });
+    segmented('#opt-letters', onoff, settings.letters, function (v) { settings.letters = v; saveSettings(); renderSetup(); });
+    segmented('#opt-sound', onoff, settings.sound, function (v) { settings.sound = v; saveSettings(); renderSetup(); updateSoundBtn(); });
+    var lvl = LEVELS.filter(function (l) { return l.n === settings.level; })[0];
+    $('#summary').innerHTML = settings.mode === 'free' ? '<b>Free play</b> · empty tray' : '<b>Guided</b> · ' + lvl.name + ' (' + lvl.n + ' pinned)';
+    renderProgress();
+    var saved = loadSavedGame();
+    $('#continue-btn').hidden = !saved || !CAT;
+  }
+  function updateSoundBtn() {
+    var b = $('#sound-btn');
+    b.classList.toggle('off', !settings.sound);
+    b.setAttribute('aria-label', settings.sound ? 'Sound on' : 'Sound off');
+  }
+
+  /* ================= Wiring ================= */
+  $('#start-btn').onclick = function () { drop(KEY_GAME); startGame(); };
+  $('#continue-btn').onclick = function () { var g = loadSavedGame(); if (g) startGame(g); };
+  $('#setup-cat-btn').onclick = function () { if (CAT) openCatalog('setup'); };
+  $('#cat-btn').onclick = function () { openCatalog('game'); };
+  $('#cat-back').onclick = function () {
+    if (catFrom === 'game' && game) { if (!game.solved) game.started = Date.now(); show('game'); updateUI(); }
+    else { show('setup'); renderSetup(); }
+  };
+  $('#cat-sort').addEventListener('click', function () { /* handled by segmented */ });
+  function renderSort() { segmented('#cat-sort', [{ v: 'num', label: 'By number' }, { v: 'new', label: 'Newest first' }], catSort, function (v) { catSort = v; renderSort(); renderCatalog(); }); }
+  renderSort();
+  $('#thumbs-more').onclick = moreThumbs;
+  $('#reset-btn').onclick = function () {
+    confirmModal('Reset your catalog?', 'This forgets all <b>' + fmtNum(foundCount()) + '</b> solutions you have found. It cannot be undone.', 'Reset', function () {
+      found = {}; save(KEY_FOUND, found); renderCatalog(); toast('Your catalog is empty again.', '🧹');
+    }, true);
+  };
+  $('#menu-btn').onclick = function () { saveGame(); show('setup'); renderSetup(); };
+  $('#restart-btn').onclick = confirmNew;
+  $('#rot-btn').onclick = function () { transformSelected('cw'); };
+  $('#flip-btn').onclick = function () { transformSelected('fh'); };
+  $('#ret-btn').onclick = function () { if (selected) returnToTray(selected); };
+  $('#undo-btn').onclick = undo;
+  $('#clear-btn').onclick = clearBoard;
+  $('#hint-btn').onclick = hint;
+  $('#sound-btn').onclick = function () { settings.sound = !settings.sound; saveSettings(); updateSoundBtn(); };
+  $('#help-btn').onclick = function () {
+    var m = openModal('<div class="modal-ico">🧩</div><h3>How to play</h3>' +
+      '<p>Fit all 12 pieces into the tray with no gaps. Every different way you find gets a number from #1 to #2,339 in your catalog.</p>' +
+      '<ul class="help-list">' +
+      '<li><b>Move</b><span>Drag a piece onto the board. Or tap a piece, then tap a square.</span></li>' +
+      '<li><b>Turn</b><span>Tap a selected piece again, press <b>Turn</b>, or press <span class="kbd">R</span> (<span class="kbd">Shift</span>+<span class="kbd">R</span> turns the other way). The mouse wheel turns a piece while you drag it.</span></li>' +
+      '<li><b>Flip</b><span>Press <b>Flip</b> or <span class="kbd">F</span> to turn it over.</span></li>' +
+      '<li><b>Take back</b><span>Drag it off the board, press <b>Return</b> or <span class="kbd">Delete</span>, or right-click it.</span></li>' +
+      '<li><b>Hint</b><span>Places one piece that leads to a solution, picking one you haven\'t found yet when it can. If nothing can fit, the pieces in the way flash red.</span></li>' +
+      '<li><b>Keys</b><span><span class="kbd">Tab</span> picks the next piece, arrow keys move it, <span class="kbd">H</span> hint, <span class="kbd">⌘/Ctrl</span>+<span class="kbd">Z</span> undo, <span class="kbd">Esc</span> lets go.</span></li>' +
+      '<li><b>Pins</b><span>Pinned pieces (with a brass pin) stay put. Use Undo to take back a hint.</span></li>' +
+      '</ul><div class="modal-actions"><button class="btn primary" data-focus type="button">Got it</button></div>');
+    m.querySelector('button').onclick = closeModal;
+  };
+  var fsBtn = $('#fs-btn');
+  var fsOK = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+  if (!fsOK) fsBtn.hidden = true;
+  fsBtn.onclick = function () {
+    var d = document, de = d.documentElement;
+    if (d.fullscreenElement || d.webkitFullscreenElement) { (d.exitFullscreen || d.webkitExitFullscreen).call(d); }
+    else { var r = (de.requestFullscreen || de.webkitRequestFullscreen).call(de); if (r && r.catch) r.catch(function () {}); }
+  };
+
+  var resizeRaf = 0;
+  window.addEventListener('resize', function () {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(function () {
+      if (drag && drag.moved) endDrag(true);
+      layout();
+      if (screen === 'catalog') drawMap();
+    });
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!game) return;
+    if (document.hidden) { saveGame(); paused = true; }
+    else { paused = false; game.started = Date.now(); }
+  });
+  window.addEventListener('pagehide', function () { if (!paused) saveGame(); });
+
+  /* ================= Start-up ================= */
+  // Logo: a finished tray with the X piece dropping into place.
+  var LOGO = 'FFIIIIILZZVFFYLLLLZNVFYYYYXZZNVVVTWXXXNNPPPTWWXUNUPPTTTWWUUU';
+  $('#logo').innerHTML = '<svg viewBox="0 0 ' + (COLS + 1) + ' ' + (ROWS + 1) + '">' + boardSVGMarkup(LOGO, 0.5) + '</svg>';
+  $('#brand-mark').innerHTML = '<svg viewBox="-.15 -.15 3.3 3.3" style="width:100%;height:100%">' + pieceMarkup('X', shift(shapeCells(PIECES.X))) + '</svg>';
+  buildStage();
+  setupPointer();
+  updateSoundBtn();
+  renderSetup();
+  // Work out all 2,339 solutions after the first paint (about a third of a second).
+  setTimeout(function () {
+    var t0 = performance.now();
+    prepareCatalog();
+    window.__pento = { ms: Math.round(performance.now() - t0), count: CAT.length, variants: VARIANTS.length };
+    var sb = $('#start-btn');
+    sb.disabled = false; sb.textContent = 'Start game';
+    renderSetup();
+  }, 60);
+})();
+  </script>
+</body>
+</html>
