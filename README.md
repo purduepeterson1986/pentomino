@@ -49,7 +49,7 @@ If the pieces on the board can't lead to any solution, Hint says so instead. The
 
 ## Options
 
-- **Live check:** shows above the board whether the pieces placed so far can still lead to a solution, and how many solutions are still possible ("✓ 37 ways to finish" or "✗ No way to finish").
+- **Live check:** decides whether each new game starts with the **Ways to finish** switch on. The switch sits above the board. While it is on, it shows whether the pieces placed so far can still lead to a solution, and how many solutions are still possible ("37 ways to finish" or "No way to finish"). Tap it, or press **L**, to turn it on or off at any time, for example to peek for a moment and then hide it again. A saved game remembers its own switch.
 - **Letters on pieces:** shows each piece's letter name: F, I, L, N, P, T, U, V, W, X, Y, Z.
 - **Sound:** wooden clicks when pieces are placed, and a fanfare for each new solution.
 

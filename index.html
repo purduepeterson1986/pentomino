@@ -253,6 +253,15 @@ h1, h2, h3, p { margin: 0; }
 }
 .chip.good { color: var(--good); border-color: rgba(95, 227, 161, .4); }
 .chip.bad { color: var(--bad); border-color: rgba(255, 92, 108, .45); }
+/* On-screen switch for the "ways to finish" counter */
+.live-toggle { font: inherit; font-weight: 800; font-size: .9rem; color: var(--ink-dim); cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.live-toggle:hover { border-color: rgba(255, 255, 255, .32); color: var(--ink); }
+.live-toggle.good:hover, .live-toggle.bad:hover { color: inherit; }
+.live-toggle .sw { flex: none; position: relative; width: 28px; height: 16px; border-radius: 999px; background: rgba(255, 255, 255, .16); transition: background .15s; }
+.live-toggle .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #cfd6ee; transition: transform .15s, background .15s; }
+.live-toggle[aria-pressed="true"] .sw { background: currentColor; }
+.live-toggle[aria-pressed="true"] .sw::after { transform: translateX(12px); background: #0c1024; }
+.live-toggle .kbd { margin-left: 2px; }
 
 .field { flex: 1; min-height: 0; position: relative; }
 .stage { position: absolute; inset: 0; touch-action: none; }
@@ -407,7 +416,7 @@ h1, h2, h3, p { margin: 0; }
 
 /* ================= Small screens ================= */
 @media (max-width: 920px), (hover: none) {
-  .actionbar .kbd { display: none; }
+  .actionbar .kbd, .live-toggle .kbd { display: none; }
 }
 @media (max-width: 920px) {
   .brand-name { display: none; }
@@ -422,7 +431,7 @@ h1, h2, h3, p { margin: 0; }
   .controls .btn span, .brand-name { display: none; }
   .controls .btn { padding: 0 13px; }
   .actionbar .btn { padding: 0 13px; min-height: 46px; }
-  .actionbar .kbd { display: none; }
+  .actionbar .kbd, .live-toggle .kbd { display: none; }
 }
 @media (max-width: 560px) {
   .modes { grid-template-columns: 1fr; }
@@ -500,7 +509,7 @@ h1, h2, h3, p { margin: 0; }
         <div class="panel-head"><h2 id="h-opts">Options</h2></div>
         <div class="opt-rows">
           <div class="opt-row">
-            <div><b>Live check</b><span>Shows whether the pieces on the board can still lead to a full solution, and how many ways remain.</span></div>
+            <div><b>Live check</b><span>Starts each game with the “ways to finish” counter switched on. It shows whether the pieces on the board can still lead to a full solution, and how many ways remain. You can switch it on and off any time during play (or press L).</span></div>
             <div class="segmented small" id="opt-live" role="radiogroup" aria-label="Live check"></div>
           </div>
           <div class="opt-row">
@@ -567,7 +576,7 @@ h1, h2, h3, p { margin: 0; }
 
     <div class="status">
       <div class="status-main" id="status-main" role="status" aria-live="polite"></div>
-      <div class="chip" id="live-chip" hidden></div>
+      <button class="chip live-toggle" id="live-chip" type="button" aria-pressed="false" title="Show or hide how many ways are left to finish (L)" hidden><i class="sw" aria-hidden="true"></i><span id="live-text">Ways to finish</span><span class="kbd">L</span></button>
     </div>
 
     <section class="field" id="field">
@@ -1100,7 +1109,7 @@ function buildCatalogFull() {
     return p;
   }
   function newGame(mode, level) {
-    game = { mode: mode, level: level, pieces: basePieces(), hints: 0, elapsed: 0, started: Date.now(), target: null, solved: false, solvedId: 0, undo: [] };
+    game = { mode: mode, level: level, live: !!settings.live, pieces: basePieces(), hints: 0, elapsed: 0, started: Date.now(), target: null, solved: false, solvedId: 0, undo: [] };
     if (mode === 'guided') {
       var open = [];
       for (var id = 1; id <= TOTAL; id++) if (!found[id]) open.push(id);
@@ -1135,7 +1144,7 @@ function buildCatalogFull() {
   function saveGame() {
     if (!game) return;
     bankTime();
-    save(KEY_GAME, { mode: game.mode, level: game.level, pieces: game.pieces, hints: game.hints, elapsed: game.elapsed, target: game.target, solved: game.solved, solvedId: game.solvedId });
+    save(KEY_GAME, { mode: game.mode, level: game.level, live: !!game.live, pieces: game.pieces, hints: game.hints, elapsed: game.elapsed, target: game.target, solved: game.solved, solvedId: game.solvedId });
   }
   function loadSavedGame() {
     var g = load(KEY_GAME, null);
@@ -1336,13 +1345,18 @@ function buildCatalogFull() {
       setStatus('<b>' + left + '</b> piece' + (left === 1 ? '' : 's') + ' left to place.');
     }
     // live check
-    var chip = $('#live-chip');
-    if (settings.live && !game.solved && VARIANTS) {
+    // The switch shows on every unsolved board; the count is worked out only while it's on.
+    var chip = $('#live-chip'), on = !!game.live;
+    chip.hidden = !!game.solved || !VARIANTS;
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on && !chip.hidden) {
       var n = distinctIds(compatible(grid()));
-      chip.hidden = false;
-      chip.className = 'chip ' + (n ? 'good' : 'bad');
-      chip.textContent = n ? '✓ ' + fmtNum(n) + (n === 1 ? ' way' : ' ways') + ' to finish' : '✗ No way to finish';
-    } else chip.hidden = true;
+      chip.className = 'chip live-toggle ' + (n ? 'good' : 'bad');
+      $('#live-text').textContent = n ? fmtNum(n) + (n === 1 ? ' way' : ' ways') + ' to finish' : 'No way to finish';
+    } else {
+      chip.className = 'chip live-toggle';
+      $('#live-text').textContent = 'Ways to finish';
+    }
     updateInfo();
   }
   function updateInfo() {
@@ -1735,6 +1749,7 @@ function buildCatalogFull() {
     else if (k === 'e' || k === 'E') { e.preventDefault(); transformSelected('ccw'); }
     else if (k === 'f' || k === 'F') { e.preventDefault(); transformSelected('fh'); }
     else if (k === 'h' || k === 'H') { e.preventDefault(); hint(); }
+    else if (k === 'l' || k === 'L') { e.preventDefault(); toggleLive(); }
     else if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (selected) returnToTray(selected); }
     else if (k === 'Escape') { if (drag && drag.moved) endDrag(true); select(null); }
     else if (k === 'Tab') {
@@ -1765,7 +1780,7 @@ function buildCatalogFull() {
   function startGame(resume) {
     if (!CAT) return;
     if (resume) {
-      game = { mode: resume.mode, level: resume.level, pieces: resume.pieces, hints: resume.hints || 0, elapsed: resume.elapsed || 0, started: Date.now(), target: resume.target || null, solved: false, solvedId: 0, undo: [] };
+      game = { mode: resume.mode, level: resume.level, live: resume.live != null ? !!resume.live : !!settings.live, pieces: resume.pieces, hints: resume.hints || 0, elapsed: resume.elapsed || 0, started: Date.now(), target: resume.target || null, solved: false, solvedId: 0, undo: [] };
     } else {
       newGame(settings.mode, settings.level);
     }
@@ -2078,6 +2093,13 @@ function buildCatalogFull() {
   $('#undo-btn').onclick = undo;
   $('#clear-btn').onclick = clearBoard;
   $('#hint-btn').onclick = hint;
+  function toggleLive() {
+    if (!game || game.solved) return;
+    game.live = !game.live;
+    saveGame();
+    updateUI();
+  }
+  $('#live-chip').onclick = toggleLive;
   $('#sound-btn').onclick = function () { settings.sound = !settings.sound; saveSettings(); updateSoundBtn(); };
   $('#help-btn').onclick = function () {
     var m = openModal('<div class="modal-ico">🧩</div><h3>How to play</h3>' +
@@ -2087,6 +2109,7 @@ function buildCatalogFull() {
       '<li><b>Turn</b><span>Tap a selected piece again, press <b>Turn</b>, or press <span class="kbd">R</span> (<span class="kbd">Shift</span>+<span class="kbd">R</span> turns the other way). Or point at a piece and turn the mouse wheel.</span></li>' +
       '<li><b>Flip</b><span>Right-click a piece, press <b>Flip</b>, or press <span class="kbd">F</span> to turn it over.</span></li>' +
       '<li><b>Take back</b><span>Drag it off the board, or press <b>Return</b> or <span class="kbd">Delete</span>.</span></li>' +
+      '<li><b>Ways to finish</b><span>Tap the switch above the board, or press <span class="kbd">L</span>, to see how many solutions the board can still reach. Tap again to hide it.</span></li>' +
       '<li><b>Hint</b><span>Places one piece that leads to a solution, picking one you haven\'t found yet when it can. If nothing can fit, the pieces in the way flash red.</span></li>' +
       '<li><b>Keys</b><span><span class="kbd">Tab</span> picks the next piece, arrow keys move it, <span class="kbd">H</span> hint, <span class="kbd">⌘/Ctrl</span>+<span class="kbd">Z</span> undo, <span class="kbd">Esc</span> lets go.</span></li>' +
       '<li><b>Pins</b><span>Pinned pieces (with a brass pin) stay put. Use Undo to take back a hint.</span></li>' +
