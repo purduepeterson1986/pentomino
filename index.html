@@ -1192,11 +1192,14 @@ function buildCatalogFull() {
         var s1 = bh / rows, w1 = bw + GAP + cols * s1, h1 = bh;
         // tray below: slots fill the board's width
         var s2 = bw / cols, w2 = bw, h2 = bh + GAP + rows * s2;
-        [[w1, h1, s1, 'right'], [w2, h2, s2, 'below']].forEach(function (o) {
+        [[w1, h1, s1, 'right', cols * s1 * bh], [w2, h2, s2, 'below', bw * rows * s2]].forEach(function (o) {
           var cs = Math.min(aw / o[0], ah / o[1], 96);
           var slotPx = o[2] * cs;
-          var score = cs * (0.55 + 0.45 * Math.min(1, slotPx / (2.2 * cs))) * (portrait ? 0.96 : 1);
+          // Board size matters most. The tray only has to be big enough to read and tap:
+          // past about 1.5 board squares (and at least 56px) per slot, a bigger tray earns nothing.
+          var score = cs * Math.pow(Math.min(1, slotPx / Math.max(1.5 * cs, 56)), 0.35) * (portrait ? 0.96 : 1);
           if (slotPx < 40) score *= 0.5;
+          if (o[4] > bw * bh * 0.9) score *= 0.88;   // a tray bigger than the board looks lopsided
           if (!best || score > best.score) best = { score: score, cs: cs, portrait: portrait, cols: cols, rows: rows, s: o[2], side: o[3], w: o[0], h: o[1] };
         });
       });
