@@ -1916,12 +1916,58 @@ function buildCatalogFull() {
       out.found[id] = e;
     });
     var d = new Date(), name = 'pentomino-catalog-' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '.json';
-    var url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
-    var a = document.createElement('a');
-    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
-    toast('Saved ' + fmtNum(n) + ' solution' + (n === 1 ? '' : 's') + ' to ' + name, '💾');
+    var text = JSON.stringify(out, null, 1), what = fmtNum(n) + ' solution' + (n === 1 ? '' : 's');
+    saveBackupFile(name, text, what);
   };
+  // Always let the player choose where the backup goes, as far as the browser allows:
+  //  1. Chrome / Edge: the system Save window (File System Access API).
+  //  2. iPhone / iPad / Android: the Share sheet, where "Save to Files" picks a folder.
+  //  3. Otherwise (Safari or Firefox on a computer): a normal download. The browser decides
+  //     the folder; it asks only if its own download setting says to.
+  function saveBackupFile(name, text, what) {
+    function download() {
+      var url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      var tipKey = 'pentomino.tip.saveas.v1';
+      if (load(tipKey, 0)) { toast('Saved ' + what + ' to ' + name + ' in your downloads.', '💾'); return; }
+      save(tipKey, 1);
+      var ua = navigator.userAgent, isSafari = /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox|FxiOS/.test(ua);
+      var how = isSafari
+        ? 'In Safari, choose <b>Safari ▸ Settings ▸ General</b> and set <b>File download location</b> to <b>Ask for each download</b>.'
+        : /Firefox/.test(ua)
+          ? 'In Firefox, open <b>Settings ▸ General ▸ Files and Applications</b> and turn on <b>Always ask you where to save files</b>.'
+          : 'turn on your browser\'s setting to ask where to save each download.';
+      openModal('<h3>Backup saved</h3><p>' + what.replace(/^([\d,]+)/, '<b>$1</b>') + ' saved to <b>' + name + '</b> in your Downloads folder.</p>' +
+        '<p>This browser doesn\'t let the game open a Save window. To choose the folder every time, ' + how + '</p>' +
+        '<div class="modal-actions"><button class="btn primary" data-focus type="button">OK</button></div>')
+        .querySelector('button').onclick = closeModal;
+    }
+    function cancelled(e) { return e && e.name === 'AbortError'; }
+    if (typeof window.showSaveFilePicker === 'function') {
+      window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'Pentomino catalog backup', accept: { 'application/json': ['.json'] } }]
+      }).then(function (h) {
+        return h.createWritable().then(function (w) {
+          return w.write(text).then(function () { return w.close(); });
+        }).then(function () { toast('Saved ' + what + ' to ' + (h.name || name) + '.', '💾'); });
+      }).catch(function (e) { if (!cancelled(e)) download(); });
+      return;
+    }
+    var touch = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+    if (touch && navigator.share && navigator.canShare && typeof File === 'function') {
+      var file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: name }).then(function () {
+          toast('Backup of ' + what + ' shared.', '💾');
+        }).catch(function (e) { if (!cancelled(e)) download(); });
+        return;
+      }
+    }
+    download();
+  }
   $('#restore-btn').onclick = function () { var f = $('#restore-file'); f.value = ''; f.click(); };
   $('#restore-file').onchange = function () {
     var file = this.files && this.files[0];

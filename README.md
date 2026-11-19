@@ -64,7 +64,10 @@ If the pieces on the board can't lead to any solution, Hint says so instead. The
 
 Your catalog lives in one browser on one device (see [Saving](#saving)). To keep it safe or move it:
 
-- **Back up catalog** saves a small file named like `pentomino-catalog-2026-11-18.json` to your Downloads folder. It lists every solution you've found, with its number, its board, and when and how you found it.
+- **Back up catalog** saves a small file named like `pentomino-catalog-2026-11-18.json`. It lists every solution you've found, with its number, its board, and when and how you found it. Where it goes depends on the browser:
+  - **Chrome and Edge** open a Save window every time, so you pick the folder (iCloud Drive works well).
+  - **iPhone and iPad** open the Share sheet. Choose **Save to Files** to pick a folder, or send it by AirDrop or Mail.
+  - **Safari and Firefox on a computer** don't let web pages open a Save window, so the file goes to Downloads. The first time, the game explains how to make the browser ask each time. In Safari: **Settings ▸ General ▸ File download location ▸ Ask for each download**.
 - **Restore from backup** reads that file in any browser, on any device. It tells you how many of its solutions are new, then adds them to your catalog when you agree. It never removes anything, so restoring the same file twice is harmless. Where both have the same solution, the earlier find date is kept.
 
 Before adding a solution, the game checks that its number still matches its board, so a damaged or edited file can't put wrong entries in your catalog.
